@@ -1,0 +1,259 @@
+:root {
+  --bg: #faf8f3;
+  --ink: #23201b;
+  --muted: #8a8577;
+  --line: #e4dfd3;
+  --accent: #5b7a6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+nav button,
+.toolbar button {
+  font: inherit;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+nav button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolbar .date {
+  font-weight: 600;
+}
+
+.toolbar input[type="date"] {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prose {
+  min-height: 40vh;
+}
+
+.prose .ProseMirror {
+  outline: none;
+  min-height: 40vh;
+}
+
+.prose .ProseMirror p {
+  margin: 0 0 0.8em;
+}
+
+.prose img {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+  margin: 12px 0;
+}
+
+.editor-pane .prose .ProseMirror {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: #fff;
+}
+
+.entry {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 24px;
+}
+
+.entry-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+/* --- Math helper (cheat sheet + live suggestion) --- */
+.math-helper {
+  margin-top: 16px;
+}
+
+.math-live {
+  border: 1px solid var(--accent);
+  background: #f1f5f2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.math-live-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.math-live-src {
+  display: inline-block;
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.math-live-preview {
+  font-size: 18px;
+}
+
+.math-live-err {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.math-toggle {
+  font: inherit;
+  font-size: 14px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.math-cheat {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.math-cheat th,
+.math-cheat td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.math-cheat th {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.math-cheat code {
+  background: #f3f1ea;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.math-cheat-render {
+  font-size: 16px;
+}
+
+/* --- Resource management panel --- */
+.resource-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.resource {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.resource.orphan {
+  background: #fdf4f0;
+}
+
+.resource-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.resource-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-name {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-tag {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.resource.orphan .resource-tag {
+  color: #b4562f;
+}
+
+.resource-actions button.danger {
+  color: #b4562f;
+  border-color: #e6c4b6;
+}

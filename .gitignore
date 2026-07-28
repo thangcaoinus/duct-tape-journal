@@ -1,3 +1,7 @@
 CLAUDE.md
 .env
 SPEC.md
+node_modules
+diary/
+dist
+.dist

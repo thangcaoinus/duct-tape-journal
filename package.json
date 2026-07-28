@@ -1,0 +1,28 @@
+{
+  "name": "duct-tape-diary",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/index.js",
+    "start": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev\""
+  },
+  "dependencies": {
+    "@tiptap/extension-image": "^2.6.6",
+    "@tiptap/extension-mathematics": "^2.6.6",
+    "@tiptap/pm": "^2.6.6",
+    "@tiptap/react": "^2.6.6",
+    "@tiptap/starter-kit": "^2.6.6",
+    "express": "^4.19.2",
+    "katex": "^0.16.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tiptap-markdown": "^0.8.10"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "vite": "^5.4.2"
+  }
+}
