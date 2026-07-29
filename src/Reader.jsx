@@ -1,134 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
-import Mathematics from "@tiptap/extension-mathematics";
-import { Markdown } from "tiptap-markdown";
 import { today } from "./lib/date.js";
 import { loadDay, loadDays } from "./api.js";
+import { DayFlow, Page, computePageRanges } from "./lib/pages.jsx";
 
-// Fixed page geometry (px). Kept in sync with the CSS custom properties in
-// styles.css (--page-w/h/pad). A day's flow is paginated so each page shows a
-// slice of it, broken only between blocks.
-const PAGE_W = 460;
-const PAGE_H = 620;
-const PAGE_PAD = 36; // inner padding; content width is PAGE_W - 2*PAD
-const FOOT_H = 24; // reserved strip at the page bottom for the date footer
-// Usable text height per page. Kept in sync with CSS --content-h.
-const CONTENT_H = PAGE_H - 2 * PAGE_PAD - FOOT_H;
 const FLIP_MS = 560;
 // Below this viewport width there's no room for a two-page spread.
 const SPREAD_MIN_W = 900;
-
-const EXTENSIONS = [
-  StarterKit,
-  Image,
-  Mathematics,
-  Markdown.configure({ html: false }),
-];
-
-// One day's entries concatenated into a single continuous read-only flow, with
-// a labeled separator between entries. Rendered identically whether it's the
-// hidden measuring copy or a visible page, so measured breaks stay valid.
-function DayFlow({ entries, onImagesLoad, range }) {
-  // Join entries into one markdown doc; a horizontal rule + heading separates
-  // them. tiptap-markdown parses `---` to an <hr>, and `### name` to a heading.
-  const markdown = useMemo(
-    () =>
-      entries
-        .map((e, i) => (i === 0 ? "" : "\n\n---\n\n") + e.markdown)
-        .join(""),
-    [entries]
-  );
-  const editor = useEditor(
-    {
-      editable: false,
-      content: markdown,
-      extensions: EXTENSIONS,
-      immediatelyRender: true,
-    },
-    [markdown]
-  );
-
-  // Images load after the DOM mounts and change block heights, so re-measure
-  // whenever one finishes.
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !onImagesLoad) return;
-    const imgs = [...el.querySelectorAll("img")];
-    const pending = imgs.filter((im) => !im.complete);
-    if (!pending.length) {
-      onImagesLoad();
-      return;
-    }
-    let left = pending.length;
-    const done = () => {
-      if (--left <= 0) onImagesLoad();
-    };
-    pending.forEach((im) => {
-      im.addEventListener("load", done, { once: true });
-      im.addEventListener("error", done, { once: true });
-    });
-    return () => {
-      pending.forEach((im) => {
-        im.removeEventListener("load", done);
-        im.removeEventListener("error", done);
-      });
-    };
-  }, [editor, onImagesLoad]);
-
-  // Reveal only this page's block range; hide the rest. Whole blocks only —
-  // nothing is clipped, so tall math/image blocks stay intact.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const pm = el.querySelector(".ProseMirror");
-    if (!pm) return;
-    const blocks = [...pm.children];
-    blocks.forEach((b, i) => {
-      const shown = !range || (i >= range.start && i < range.end);
-      b.style.display = shown ? "" : "none";
-    });
-  }, [editor, range, markdown]);
-
-  return (
-    <div ref={ref} className="day-flow">
-      <EditorContent editor={editor} className="prose" />
-    </div>
-  );
-}
-
-// Measure a day's flow off-screen and return, for each page, the RANGE of
-// top-level block indices it should show: { start, end } (end exclusive).
-// A page accumulates whole blocks until the next block would overflow
-// CONTENT_H, then starts a fresh page. Because pages are described by block
-// indices — not pixel offsets — each visible page renders only its own whole
-// blocks and CSS lays them out naturally. Nothing is ever translate-clipped, so
-// a tall block (a KaTeX formula, an image) can never be sliced through.
-function computePageRanges(flowEl) {
-  const pm = flowEl?.querySelector(".ProseMirror");
-  if (!pm) return [{ start: 0, end: 0 }];
-  const blocks = [...pm.children];
-  if (!blocks.length) return [{ start: 0, end: 0 }];
-  const base = pm.getBoundingClientRect().top;
-  const ranges = [];
-  let start = 0;
-  let pageTop = blocks[0].getBoundingClientRect().top - base;
-  for (let i = 0; i < blocks.length; i++) {
-    const rect = blocks[i].getBoundingClientRect();
-    const bottom = rect.bottom - base;
-    // This block overflows the current page and isn't the first on it: close
-    // the page before it and open a new one starting at this block.
-    if (bottom - pageTop > CONTENT_H && i > start) {
-      ranges.push({ start, end: i });
-      start = i;
-      pageTop = rect.top - base;
-    }
-  }
-  ranges.push({ start, end: blocks.length });
-  return ranges;
-}
 
 export default function Reader() {
   const [days, setDays] = useState([]); // sorted date strings with entries
@@ -350,27 +227,6 @@ export default function Reader() {
           />
         </div>
       )}
-    </div>
-  );
-}
-
-// A single page: shows exactly this page's slice of a day's flow. The clip
-// window's height is the slice height and it hides everything outside it, so
-// neither the previous block's tail nor the next block bleeds at the edges;
-// the inner flow is translated up by the slice offset.
-function Page({ page, entriesFor, blank }) {
-  if (blank || !page) return <div className="page page-blank" />;
-  const entries = entriesFor(page.date);
-  return (
-    <div className="page">
-      <div className="page-inner">
-        {entries ? (
-          <DayFlow entries={entries} range={page.range} />
-        ) : (
-          <p className="empty">…</p>
-        )}
-      </div>
-      <div className="page-foot">{page.date}</div>
     </div>
   );
 }

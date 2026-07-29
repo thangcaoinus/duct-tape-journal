@@ -30,11 +30,18 @@ export async function loadDay(date) {
   return body.entries ?? [];
 }
 
-// Sorted list of dates (YYYY-MM-DD) that have finalized entries. Feeds the
-// reader's day-to-day page sequence.
-export async function loadDays() {
+// Sorted [{date, count}] of days that have finalized entries. Feeds the
+// calendar's per-day card fan.
+export async function loadDaysWithCounts() {
   const { body } = await json(await fetch(`/api/days`));
   return body.days ?? [];
+}
+
+// Sorted list of just the dates (YYYY-MM-DD) with entries. Feeds the reader's
+// day-to-day page sequence. Derived from the counted form above.
+export async function loadDays() {
+  const days = await loadDaysWithCounts();
+  return days.map((d) => d.date);
 }
 
 export async function loadResources(date) {

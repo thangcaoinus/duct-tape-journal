@@ -144,9 +144,10 @@ app.get("/api/days", async (req, res) => {
   for (const d of dirs) {
     if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
     const inner = await fs.readdir(path.join(DIARY, d.name));
-    if (inner.some((f) => /^entry-\d+\.md$/.test(f))) days.push(d.name);
+    const count = inner.filter((f) => /^entry-\d+\.md$/.test(f)).length;
+    if (count > 0) days.push({ date: d.name, count });
   }
-  days.sort();
+  days.sort((a, b) => a.date.localeCompare(b.date));
   res.json({ ok: true, days });
 });
 

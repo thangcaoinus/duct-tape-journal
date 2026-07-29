@@ -23,6 +23,11 @@ body {
   padding: 24px 20px 80px;
 }
 
+/* The calendar wants room to breathe. */
+.app.app-wide {
+  max-width: 1100px;
+}
+
 .app-header {
   display: flex;
   align-items: baseline;
@@ -588,4 +593,196 @@ nav button.active {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* --- Calendar view --- */
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 4px 0 20px;
+}
+.cal-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  min-width: 220px;
+  text-align: center;
+}
+.cal-nav {
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+}
+.cal-nav:hover {
+  background: var(--bg);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+
+/* Big square-ish day cells. */
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  overflow: hidden;
+}
+/* Cells with entries are buttons — make them feel clickable. */
+button.cal-cell {
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+button.cal-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent);
+}
+.cal-out {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  opacity: 0.5;
+}
+.cal-today {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.cal-daynum {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.cal-today .cal-daynum {
+  color: var(--accent);
+}
+
+/* Fanned blank page-cards signaling entry count. */
+.card-fan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 44px;
+}
+.page-card {
+  width: 30px;
+  height: 40px;
+  margin: 0 -6px; /* overlap so they read as a fanned stack */
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+  transform-origin: bottom center;
+}
+
+@media (max-width: 720px) {
+  .cal-cell {
+    min-height: 64px;
+  }
+  .page-card {
+    width: 20px;
+    height: 28px;
+  }
+}
+
+/* --- Day overlay: dimmed background + card-shuffle reader --- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 18, 14, 0.55);
+  backdrop-filter: blur(2px);
+  animation: overlay-in 0.18s ease;
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.overlay-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.overlay-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+.overlay-book {
+  margin: 0;
+}
+.overlay-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+}
+.overlay-controls .status {
+  color: #f3efe6;
+  min-width: 96px;
+  text-align: center;
+}
+.overlay-controls button {
+  font: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.overlay-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
