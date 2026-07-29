@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Editor from "./Editor.jsx";
 import Reader from "./Reader.jsx";
-import Resources from "./Resources.jsx";
 
 export default function App() {
   // Boots to write mode (today's editor). A plain toggle flips to read mode.
@@ -24,18 +23,11 @@ export default function App() {
           >
             Read
           </button>
-          <button
-            className={mode === "resources" ? "active" : ""}
-            onClick={() => setMode("resources")}
-          >
-            Resources
-          </button>
         </nav>
       </header>
       <main>
         {mode === "write" && <Editor />}
         {mode === "read" && <Reader />}
-        {mode === "resources" && <Resources />}
       </main>
     </div>
   );

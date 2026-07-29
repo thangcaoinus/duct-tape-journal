@@ -257,3 +257,99 @@ nav button.active {
   color: #b4562f;
   border-color: #e6c4b6;
 }
+
+/* --- In-tab resource drawer: lives in the blank column to the RIGHT of the
+   editor's reading width, so opening it never cramps the editor. --- */
+.editor-body {
+  position: relative; /* positioning context for the drawer */
+}
+
+.editor-main {
+  /* Editor keeps its full reading width regardless of the drawer. */
+  min-width: 0;
+}
+
+.drawer {
+  position: absolute;
+  top: 0;
+  /* Sit just past the editor's right edge, out in the empty margin. */
+  left: calc(100% + 24px);
+  width: 320px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+  /* Slide + fade in from the right; no layout shift on the editor. */
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.editor-body.drawer-open .drawer {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* On narrow viewports there's no room in the margin — fall back to a panel
+   that sits below the editor instead of off to the side. */
+@media (max-width: 1200px) {
+  .drawer {
+    position: static;
+    width: auto;
+    left: auto;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    margin-top: 20px;
+    padding-top: 12px;
+    max-height: none;
+    /* Collapse height when closed for the below-editor layout. */
+    display: none;
+  }
+  .editor-body.drawer-open .drawer {
+    display: flex;
+    transform: none;
+  }
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.drawer-close {
+  font: inherit;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+/* Inside the drawer, stack thumbnail + actions vertically to fit the width. */
+.drawer .resource {
+  flex-wrap: wrap;
+}
+
+.drawer .resource-actions {
+  display: flex;
+  gap: 6px;
+  flex-basis: 100%;
+  margin-top: 6px;
+}
+
+.drawer .resource-actions button {
+  margin-left: 0;
+  font-size: 13px;
+  padding: 4px 10px;
+}

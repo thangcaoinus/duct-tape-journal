@@ -4,23 +4,36 @@ import { loadResources, deleteResource } from "./api.js";
 
 // Orphan-cleanup panel: per-date image list with copy-reference + soft delete.
 // "Orphan" = a file no finalized entry or draft references — the whole point of
-// this tab, since paste-to-embed gives you no delete affordance.
-export default function Resources() {
-  const [date, setDate] = useState(today());
+// this panel, since paste-to-embed gives you no delete affordance.
+//
+// Props (all optional):
+//   fixedDate  - lock to this date and hide the picker (drawer-in-editor mode)
+//   refreshKey - bump to force a reload (e.g. each time the drawer opens)
+//   onInsert   - if given, shows an "Insert" button that drops the image
+//                straight into the editor (wire url) instead of copy+paste
+export default function Resources({ fixedDate, refreshKey, onInsert }) {
+  const [date, setDate] = useState(fixedDate || today());
   const [resources, setResources] = useState([]);
   const [note, setNote] = useState("");
+
+  // Keep in sync if a parent-controlled fixedDate changes.
+  useEffect(() => {
+    if (fixedDate) setDate(fixedDate);
+  }, [fixedDate]);
 
   function refresh(d) {
     loadResources(d).then(setResources);
   }
   useEffect(() => {
     refresh(date);
-  }, [date]);
+  }, [date, refreshKey]);
 
-  function copyRef(name) {
-    // The markdown you'd paste into an entry to reference this image on disk.
-    navigator.clipboard?.writeText(`![](resources/${name})`);
-    setNote(`copied reference to ${name}`);
+  function copyRef(r) {
+    // Copy the WIRE-path markdown so pasting it into the editor resolves to a
+    // real image. The server rewrites this back to the relative disk path on
+    // save, so on-disk entries stay portable.
+    navigator.clipboard?.writeText(`![](${r.url})`);
+    setNote(`copied reference to ${r.name}`);
   }
 
   async function onDelete(name) {
@@ -39,11 +52,13 @@ export default function Resources() {
   return (
     <div className="resources-pane">
       <div className="toolbar">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        {!fixedDate && (
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        )}
         <span className="status">
           {resources.length} image{resources.length === 1 ? "" : "s"}
           {orphans > 0 && ` · ${orphans} orphan${orphans === 1 ? "" : "s"}`}
@@ -68,7 +83,10 @@ export default function Resources() {
                 </span>
               </div>
               <div className="resource-actions">
-                <button onClick={() => copyRef(r.name)}>Copy ref</button>
+                {onInsert && (
+                  <button onClick={() => onInsert(r)}>Insert</button>
+                )}
+                <button onClick={() => copyRef(r)}>Copy ref</button>
                 <button className="danger" onClick={() => onDelete(r.name)}>
                   Delete
                 </button>

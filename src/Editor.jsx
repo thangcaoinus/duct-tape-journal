@@ -7,6 +7,7 @@ import { Markdown } from "tiptap-markdown";
 import { today } from "./lib/date.js";
 import { loadDraft, saveDraft, finalize, uploadImage } from "./api.js";
 import MathHelper from "./MathHelper.jsx";
+import Resources from "./Resources.jsx";
 
 const AUTOSAVE_MS = 800;
 
@@ -32,6 +33,22 @@ export default function Editor() {
   const saveTimer = useRef(null);
   const [status, setStatus] = useState("");
   const [currentMath, setCurrentMath] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Bump on open so the drawer reloads (e.g. an image pasted since last time).
+  const [drawerKey, setDrawerKey] = useState(0);
+
+  // Insert an existing resource straight into the editor at the cursor.
+  function insertResource(r) {
+    editorRef.current?.chain().focus().setImage({ src: r.url }).run();
+    setStatus(`inserted ${r.name}`);
+  }
+
+  function toggleDrawer() {
+    setDrawerOpen((open) => {
+      if (!open) setDrawerKey((k) => k + 1); // refresh list on open
+      return !open;
+    });
+  }
 
   // Upload then insert AFTER the async resolves — capture editor via ref.
   function handleImageFiles(files) {
@@ -59,10 +76,29 @@ export default function Editor() {
     ],
     editorProps: {
       handlePaste(view, event) {
+        // 1. Pasted image FILES (screenshot, copied image) -> upload + insert.
         const files = event.clipboardData?.files || [];
-        if (![...files].some((f) => f.type.startsWith("image/"))) return false;
-        event.preventDefault();
-        return handleImageFiles(files);
+        if ([...files].some((f) => f.type.startsWith("image/"))) {
+          event.preventDefault();
+          return handleImageFiles(files);
+        }
+        // 2. Pasted TEXT that is a markdown image ref (e.g. from "Copy ref")
+        //    -> insert a real image node so it renders instead of staying text.
+        const text = event.clipboardData?.getData("text/plain") || "";
+        const imgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
+        const imgMatches = [...text.matchAll(imgRe)];
+        // Only convert when the paste is *just* image refs (ignoring whitespace),
+        // so prose that merely mentions ![]() isn't hijacked.
+        const isPureImages =
+          imgMatches.length > 0 && text.replace(imgRe, "").trim() === "";
+        if (isPureImages) {
+          event.preventDefault();
+          let chain = editorRef.current?.chain().focus();
+          for (const m of imgMatches) chain = chain.setImage({ src: m[1] });
+          chain?.run();
+          return true;
+        }
+        return false;
       },
       handleDrop(view, event) {
         const files = event.dataTransfer?.files || [];
@@ -129,10 +165,37 @@ export default function Editor() {
       <div className="toolbar">
         <span className="date">{date}</span>
         <button onClick={onFinalize}>Finalize</button>
+        <button
+          className="drawer-toggle"
+          onClick={toggleDrawer}
+          aria-expanded={drawerOpen}
+        >
+          Images {drawerOpen ? "▸" : "◂"}
+        </button>
         <span className="status">{status}</span>
       </div>
-      <EditorContent editor={editor} className="prose" />
-      <MathHelper currentMath={currentMath} />
+      {/* Editor and the resource drawer sit side by side inside the pane, so
+          the drawer reads as part of this tab — no overlay, no dimming. */}
+      <div className={`editor-body ${drawerOpen ? "drawer-open" : ""}`}>
+        <div className="editor-main">
+          <EditorContent editor={editor} className="prose" />
+          <MathHelper currentMath={currentMath} />
+        </div>
+
+        <aside className="drawer" aria-hidden={!drawerOpen}>
+          <div className="drawer-head">
+            <strong>Images · {date}</strong>
+            <button className="drawer-close" onClick={() => setDrawerOpen(false)}>
+              ✕
+            </button>
+          </div>
+          <Resources
+            fixedDate={date}
+            refreshKey={drawerKey}
+            onInsert={insertResource}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
