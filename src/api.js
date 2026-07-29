@@ -30,6 +30,13 @@ export async function loadDay(date) {
   return body.entries ?? [];
 }
 
+// Sorted list of dates (YYYY-MM-DD) that have finalized entries. Feeds the
+// reader's day-to-day page sequence.
+export async function loadDays() {
+  const { body } = await json(await fetch(`/api/days`));
+  return body.days ?? [];
+}
+
 export async function loadResources(date) {
   const { body } = await json(await fetch(`/api/resources/${date}`));
   return body.resources ?? [];

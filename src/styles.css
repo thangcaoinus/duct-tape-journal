@@ -353,3 +353,239 @@ nav button.active {
   font-size: 13px;
   padding: 4px 10px;
 }
+
+/* --- Read view: paginated book with a 3D page-flip ---
+   Geometry MUST match the constants in Reader.jsx (PAGE_W/H/PAD). */
+:root {
+  --page-w: 460px;
+  --page-h: 620px;
+  --page-pad: 36px;
+  --foot-h: 24px; /* reserved strip for the date footer; matches FOOT_H in JS */
+  /* content box = page minus padding both sides (and the footer strip vertically) */
+  --content-w: calc(var(--page-w) - 2 * var(--page-pad));
+  --content-h: calc(var(--page-h) - 2 * var(--page-pad) - var(--foot-h));
+  --flip-ms: 560ms;
+  --paper: #fffdf8;
+  --paper-edge: #efe9db;
+}
+
+/* The book: perspective host for the 3D leaf turn. */
+.book {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  perspective: 2000px;
+  margin: 8px auto 0;
+  width: calc(var(--page-w) * 2);
+  height: var(--page-h);
+}
+
+.book.single {
+  width: var(--page-w);
+}
+
+/* One physical page. */
+.page {
+  width: var(--page-w);
+  height: var(--page-h);
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Left page of a spread curls its shadow toward the spine, and vice versa. */
+.book-side.left .page {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+  box-shadow: inset -10px 0 18px -14px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.08);
+}
+.book-side.right .page {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+  box-shadow: inset 10px 0 18px -14px rgba(0, 0, 0, 0.25),
+    0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.page-blank {
+  background: var(--paper);
+}
+
+/* The content box: holds only this page's whole blocks (chosen by index in JS),
+   so it fits within --content-h by construction. overflow:hidden is just a
+   safety net against a single block taller than the page. */
+.page-inner {
+  position: absolute;
+  inset: var(--page-pad);
+  bottom: calc(var(--page-pad) + var(--foot-h));
+  overflow: hidden;
+}
+
+.page .day-flow,
+.measure-host .day-flow {
+  width: var(--content-w);
+}
+
+/* Inside a page/measuring flow, the editor's authoring min-height doesn't apply
+   — pages are sized by their block content, not a min. */
+.page .day-flow .prose,
+.page .day-flow .ProseMirror,
+.measure-host .day-flow .prose,
+.measure-host .day-flow .ProseMirror {
+  min-height: 0;
+}
+
+/* Footer sits in its own reserved strip at the page bottom, out of the content
+   flow, so it can never overlap or clip the text above it. */
+.page-foot {
+  position: absolute;
+  left: var(--page-pad);
+  right: var(--page-pad);
+  bottom: var(--page-pad);
+  height: var(--foot-h);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--paper-edge);
+  padding-top: 4px;
+}
+
+/* Off-screen measuring host: same content width as a page so measured page
+   breaks line up exactly with what's rendered. */
+.measure-host {
+  position: absolute;
+  left: -99999px;
+  top: 0;
+  width: var(--content-w);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Entry separator inside a day's flow. */
+.day-flow .prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
+
+/* --- The turning leaf (spread mode) --- */
+.book-side {
+  width: var(--page-w);
+  height: var(--page-h);
+}
+
+.leaf {
+  position: absolute;
+  top: 0;
+  width: var(--page-w);
+  height: var(--page-h);
+  transform-style: preserve-3d;
+  transition: transform var(--flip-ms) ease-in-out;
+  z-index: 3;
+}
+
+/* Forward: the right leaf sits on the right half and turns left about the
+   spine (its left edge). */
+.leaf-fwd {
+  left: var(--page-w);
+  transform-origin: left center;
+  transform: rotateY(0deg);
+  animation: leaf-turn-fwd var(--flip-ms) ease-in-out forwards;
+}
+/* Backward: the left leaf sits on the left half and turns right about the
+   spine (its right edge). */
+.leaf-back {
+  left: 0;
+  transform-origin: right center;
+  transform: rotateY(0deg);
+  animation: leaf-turn-back var(--flip-ms) ease-in-out forwards;
+}
+
+@keyframes leaf-turn-fwd {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(-180deg);
+  }
+}
+@keyframes leaf-turn-back {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(180deg);
+  }
+}
+
+.leaf-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+/* The back face is pre-rotated so it reads correctly once the leaf is flipped. */
+.leaf-back-face {
+  transform: rotateY(180deg);
+}
+
+/* --- Single-page mode: slide/shuffle, no 3D --- */
+.book.single .shuffle {
+  transition: transform var(--flip-ms) ease, opacity var(--flip-ms) ease;
+}
+.shuffle-fwd {
+  animation: shuffle-out-left var(--flip-ms) ease forwards;
+}
+.shuffle-back {
+  animation: shuffle-out-right var(--flip-ms) ease forwards;
+}
+@keyframes shuffle-out-left {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  45% {
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+  55% {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes shuffle-out-right {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  45% {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  55% {
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaf,
+  .book.single .shuffle,
+  .shuffle-fwd,
+  .shuffle-back {
+    animation: none !important;
+    transition: none !important;
+  }
+}
