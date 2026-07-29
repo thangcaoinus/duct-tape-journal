@@ -44,6 +44,40 @@ export async function loadDays() {
   return days.map((d) => d.date);
 }
 
+// Soft-delete a finalized entry (calendar day-overlay's by-entry mode). Does
+// NOT touch the day's images — entry and image deletion are independent.
+export async function deleteEntry(date, name) {
+  return json(
+    await fetch(`/api/entry/${date}/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    })
+  );
+}
+
+// List recoverable trash items ([{id, kind, date, name, deletedAt, url?}]).
+export async function loadTrash() {
+  const { body } = await json(await fetch(`/api/trash`));
+  return body.items ?? [];
+}
+
+// Read a trashed ENTRY's markdown (wire paths) for previewing before restore.
+export async function loadTrashEntry(id) {
+  const { body } = await json(
+    await fetch(`/api/trash/${encodeURIComponent(id)}`)
+  );
+  return body.markdown ?? "";
+}
+
+// Restore a trashed item to its original place. Resolves to {status, body};
+// body.ok on success, or a 409 with body.error when the slot is already taken.
+export async function restoreTrash(id) {
+  return json(
+    await fetch(`/api/trash/restore/${encodeURIComponent(id)}`, {
+      method: "POST",
+    })
+  );
+}
+
 export async function loadResources(date) {
   const { body } = await json(await fetch(`/api/resources/${date}`));
   return body.resources ?? [];

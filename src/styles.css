@@ -786,3 +786,180 @@ button.cal-cell:hover {
   opacity: 0.4;
   cursor: default;
 }
+
+/* Overlay header: date + Flow/By-entry toggle, shared by both views. */
+.overlay-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #f3efe6;
+}
+.overlay-head > strong {
+  font-weight: 600;
+}
+.overlay-head .status {
+  color: #f3efe6;
+}
+.overlay-viewtoggle {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.overlay-viewtoggle button {
+  font: inherit;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.overlay-viewtoggle button.active {
+  background: #fff;
+  color: var(--ink);
+}
+
+/* --- Overlay "by entry" mode: entry cards + image side panel --- */
+.overlay-stage.by-entry {
+  width: min(92vw, 980px);
+  max-height: 88vh;
+}
+.overlay-byentry {
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+  width: 100%;
+  height: 78vh;
+  overflow: hidden;
+}
+.overlay-byentry .entry-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* The single entry lives here and scrolls INTERNALLY if it's taller than the
+   stage, so long entries are fully reachable and the Prev/Next bar stays put. */
+.entry-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.entry-card {
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+/* Center the entry-mode Prev/Next controls under the stage. */
+.overlay-byentry .overlay-controls {
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.entry-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--paper-edge);
+  background: #faf6ee;
+}
+.entry-card-head code {
+  font-size: 13px;
+  color: var(--muted);
+}
+.entry-card-head .danger {
+  font: inherit;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #fff;
+  color: #b4562f;
+  border: 1px solid #e6c4b6;
+  cursor: pointer;
+}
+.entry-card-body {
+  padding: 14px 20px;
+}
+/* The entry flow inside a card shows in full (no pagination clipping here). */
+.entry-card-body .day-flow .ProseMirror {
+  height: auto;
+}
+.overlay-byentry .entry-images {
+  flex: 0 0 300px;
+  height: 100%;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+.overlay-byentry .entry-images .drawer-head {
+  margin-bottom: 8px;
+}
+
+/* Stack the side panel under the entries on narrow viewports. */
+@media (max-width: 760px) {
+  .overlay-byentry {
+    flex-direction: column;
+    height: auto;
+    max-height: 82vh;
+    overflow-y: auto;
+  }
+  .overlay-byentry .entry-column,
+  .overlay-byentry .entry-images {
+    height: auto;
+    flex-basis: auto;
+    width: 100%;
+  }
+  .entry-stage {
+    overflow-y: visible;
+  }
+}
+
+/* --- Tore (bin) tab: recoverable entries + images --- */
+.bin-group {
+  margin-top: 18px;
+}
+.bin-group h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.bin-pane .resource-actions button {
+  font: inherit;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* A deleted-entry row stacks: [meta | actions] on top, expandable preview below. */
+.bin-entry {
+  display: block;
+}
+.bin-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bin-preview {
+  margin-top: 10px;
+  padding: 14px 18px;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+/* Show the previewed entry in full (no page clipping in the bin). */
+.bin-preview .day-flow .ProseMirror {
+  height: auto;
+}

@@ -11,7 +11,8 @@ import { loadResources, deleteResource } from "./api.js";
 //   refreshKey - bump to force a reload (e.g. each time the drawer opens)
 //   onInsert   - if given, shows an "Insert" button that drops the image
 //                straight into the editor (wire url) instead of copy+paste
-export default function Resources({ fixedDate, refreshKey, onInsert }) {
+//   onDeleted  - called after a successful soft-delete (lets a host refresh)
+export default function Resources({ fixedDate, refreshKey, onInsert, onDeleted }) {
   const [date, setDate] = useState(fixedDate || today());
   const [resources, setResources] = useState([]);
   const [note, setNote] = useState("");
@@ -42,6 +43,7 @@ export default function Resources({ fixedDate, refreshKey, onInsert }) {
     if (body.ok) {
       setNote(`moved ${name} to trash`);
       refresh(date);
+      onDeleted?.();
     } else {
       setNote(`delete failed: ${body.error}`);
     }

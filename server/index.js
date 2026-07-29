@@ -52,11 +52,25 @@ async function nextEntryNumber(dayDir) {
 }
 
 // Soft delete: move a file into .trash/ with a timestamped name. Never unlink.
-async function moveToTrash(absPath) {
+// `meta` records the file's ORIGIN so the Bin can restore it to its exact place:
+//   { kind: 'entry'|'resource'|'draft', date, name }
+// It's written as a sidecar `.trash/<trashName>.json`. The trashed blob keeps its
+// original bytes and `<stamp>__<basename>` name; only the sidecar is new. Trash
+// items from before this feature simply have no sidecar and aren't Bin-restorable.
+async function moveToTrash(absPath, meta) {
   await fs.mkdir(TRASH, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const dest = path.join(TRASH, `${stamp}__${path.basename(absPath)}`);
+  const trashName = `${stamp}__${path.basename(absPath)}`;
+  const dest = path.join(TRASH, trashName);
   await fs.rename(absPath, dest);
+  if (meta) {
+    await fs.writeFile(
+      `${dest}.json`,
+      JSON.stringify({ ...meta, deletedAt: new Date().toISOString() }),
+      "utf8"
+    );
+  }
+  return trashName;
 }
 
 // --- Draft autosave / load ---
@@ -105,7 +119,7 @@ app.post("/api/finalize/:date", guardDate, async (req, res) => {
   }
   // Draft is already on disk in disk-path form; write straight through.
   await fs.writeFile(file, md, "utf8");
-  await moveToTrash(draftPath);
+  await moveToTrash(draftPath, { kind: "draft", date, name: `${date}.md` });
   res.json({ ok: true, entry: `entry-${n}.md` });
 });
 
@@ -216,8 +230,129 @@ app.delete("/api/resource/:date/:name", guardDate, async (req, res) => {
   if (!fsSync.existsSync(target)) {
     return res.status(404).json({ ok: false, error: "not found" });
   }
-  await moveToTrash(target);
+  await moveToTrash(target, { kind: "resource", date, name });
   res.json({ ok: true });
+});
+
+// --- Entry soft delete (from the calendar day-overlay's by-entry mode) ---
+// Deletes ONLY the entry markdown; its images are left untouched (delete of an
+// entry and delete of an image are independent, by design). Numbers are never
+// reused (nextEntryNumber is max+1), so the gap this leaves is stable and the
+// entry can later be restored to its exact slot from the Bin.
+app.delete("/api/entry/:date/:name", guardDate, async (req, res) => {
+  const { date } = req.params;
+  const name = path.basename(req.params.name); // block traversal
+  if (!/^entry-\d+\.md$/.test(name)) {
+    return res.status(400).json({ ok: false, error: "bad entry name" });
+  }
+  const target = path.join(DIARY, date, name);
+  if (!fsSync.existsSync(target)) {
+    return res.status(404).json({ ok: false, error: "not found" });
+  }
+  await moveToTrash(target, { kind: "entry", date, name });
+  res.json({ ok: true });
+});
+
+// --- Bin: list recoverable trash items (those with an origin sidecar) ---
+// Drafts are recorded but hidden here — the Bin is for things a user meaningfully
+// deleted (entries, images), not autosave churn. Sidecar-less items (pre-feature)
+// are skipped: their origin is unknown, so we can't offer a one-click restore.
+app.get("/api/trash", async (req, res) => {
+  let files = [];
+  try {
+    files = await fs.readdir(TRASH);
+  } catch {
+    return res.json({ ok: true, items: [] });
+  }
+  const items = [];
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue; // sidecars drive the listing
+    const blob = f.slice(0, -".json".length);
+    if (!files.includes(blob)) continue; // orphan sidecar; skip
+    let meta;
+    try {
+      meta = JSON.parse(await fs.readFile(path.join(TRASH, f), "utf8"));
+    } catch {
+      continue;
+    }
+    if (meta.kind === "draft") continue; // hide draft churn
+    items.push({
+      id: blob,
+      kind: meta.kind,
+      date: meta.date,
+      name: meta.name,
+      deletedAt: meta.deletedAt,
+      url: meta.kind === "resource" ? `/files/.trash/${blob}` : undefined,
+    });
+  }
+  items.sort((a, b) => (b.deletedAt || "").localeCompare(a.deletedAt || ""));
+  res.json({ ok: true, items });
+});
+
+// --- Bin: read a trashed ENTRY's markdown, for previewing before restore ---
+// Wire-rewrites image refs using the item's ORIGIN date (from the sidecar) so any
+// embedded images still resolve in the preview. Only entry items are previewable.
+app.get("/api/trash/:id", async (req, res) => {
+  const id = path.basename(req.params.id); // block traversal
+  const blob = path.join(TRASH, id);
+  const sidecar = `${blob}.json`;
+  if (!fsSync.existsSync(blob) || !fsSync.existsSync(sidecar)) {
+    return res.status(404).json({ ok: false, error: "not in bin" });
+  }
+  let meta;
+  try {
+    meta = JSON.parse(await fs.readFile(sidecar, "utf8"));
+  } catch {
+    return res.status(400).json({ ok: false, error: "bad sidecar" });
+  }
+  if (meta.kind !== "entry") {
+    return res.status(400).json({ ok: false, error: "not previewable" });
+  }
+  const md = await fs.readFile(blob, "utf8");
+  res.json({ ok: true, markdown: toWire(md, meta.date) });
+});
+
+// --- Bin: restore a trashed item to its original place (soft; rename back) ---
+// Never overwrites: if the destination already exists (e.g. the same slot was
+// re-created), refuse with 409 and leave the item in the bin.
+app.post("/api/trash/restore/:id", async (req, res) => {
+  const id = path.basename(req.params.id); // block traversal
+  const blob = path.join(TRASH, id);
+  const sidecar = `${blob}.json`;
+  if (!fsSync.existsSync(blob) || !fsSync.existsSync(sidecar)) {
+    return res.status(404).json({ ok: false, error: "not in bin" });
+  }
+  let meta;
+  try {
+    meta = JSON.parse(await fs.readFile(sidecar, "utf8"));
+  } catch {
+    return res.status(400).json({ ok: false, error: "bad sidecar" });
+  }
+  const { kind, date, name } = meta;
+  if (!DATE_RE.test(date || "")) {
+    return res.status(400).json({ ok: false, error: "bad origin date" });
+  }
+  const safeName = path.basename(name || "");
+  let dest;
+  if (kind === "entry") {
+    if (!/^entry-\d+\.md$/.test(safeName)) {
+      return res.status(400).json({ ok: false, error: "bad entry name" });
+    }
+    dest = path.join(DIARY, date, safeName);
+  } else if (kind === "resource") {
+    dest = path.join(DIARY, date, "resources", safeName);
+  } else {
+    return res.status(400).json({ ok: false, error: "not restorable" });
+  }
+  if (fsSync.existsSync(dest)) {
+    return res
+      .status(409)
+      .json({ ok: false, error: "destination already exists", date, name: safeName });
+  }
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.rename(blob, dest);
+  await fs.rm(sidecar, { force: true }); // drop the now-consumed origin record
+  res.json({ ok: true, date, name: safeName });
 });
 
 // --- Static serve of diary/ so images display ---

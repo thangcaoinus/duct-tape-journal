@@ -37,6 +37,8 @@ export default function Calendar() {
   const [openDate, setOpenDate] = useState(null);
   const t = today();
 
+  // Bump to re-pull per-day counts after a delete in the overlay.
+  const [countsKey, setCountsKey] = useState(0);
   useEffect(() => {
     let cancelled = false;
     loadDaysWithCounts().then((days) => {
@@ -46,7 +48,7 @@ export default function Calendar() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [countsKey]);
 
   const cells = useMemo(() => monthGrid(ym), [ym]);
 
@@ -113,7 +115,11 @@ export default function Calendar() {
       </div>
 
       {openDate && (
-        <DayOverlay date={openDate} onClose={() => setOpenDate(null)} />
+        <DayOverlay
+          date={openDate}
+          onClose={() => setOpenDate(null)}
+          onChanged={() => setCountsKey((k) => k + 1)}
+        />
       )}
     </div>
   );

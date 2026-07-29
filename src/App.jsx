@@ -2,6 +2,7 @@ import { useState } from "react";
 import Editor from "./Editor.jsx";
 import Reader from "./Reader.jsx";
 import Calendar from "./Calendar.jsx";
+import Bin from "./Bin.jsx";
 
 export default function App() {
   // Boots to write mode (today's editor). A plain toggle flips modes.
@@ -31,12 +32,19 @@ export default function App() {
           >
             Calendar
           </button>
+          <button
+            className={mode === "bin" ? "active" : ""}
+            onClick={() => setMode("bin")}
+          >
+            Tore
+          </button>
         </nav>
       </header>
       <main>
         {mode === "write" && <Editor />}
         {mode === "read" && <Reader />}
         {mode === "calendar" && <Calendar />}
+        {mode === "bin" && <Bin />}
       </main>
     </div>
   );
