@@ -33,7 +33,7 @@ function mathAtCursor(text, offset) {
   return text.slice(before + 1, after);
 }
 
-export default function Editor() {
+export default function Editor({ onFinalized }) {
   const date = today();
   const editorRef = useRef(null);
   const saveTimer = useRef(null);
@@ -192,6 +192,7 @@ export default function Editor() {
       setTopic("");
       topicRef.current = "";
       loadTopics().then(setTopics); // a just-used new topic now suggests
+      onFinalized?.(); // tell the app an entry changed so Read re-measures
       setStatus(`finalized ${body.entry}`);
     } else {
       setStatus(`finalize failed (${code}): ${body.error}`);

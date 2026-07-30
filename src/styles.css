@@ -87,6 +87,16 @@ nav button.active {
   width: 140px;
 }
 
+.toolbar .day-jump {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  max-width: 260px;
+  cursor: pointer;
+}
+
 .status {
   color: var(--muted);
   font-size: 14px;
@@ -496,6 +506,17 @@ nav button.active {
   left: -99999px;
   top: 0;
   width: var(--content-w);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* An inactive pane kept mounted (the Reader) — moved off-screen but still laid out
+   so its off-screen pagination measuring keeps real geometry. NOT display:none,
+   which would zero out getBoundingClientRect and break measurement. */
+.pane-hidden {
+  position: absolute;
+  left: -99999px;
+  top: 0;
   visibility: hidden;
   pointer-events: none;
 }

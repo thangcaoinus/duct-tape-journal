@@ -7,7 +7,7 @@ import { DayFlow } from "./lib/pages.jsx";
 // its original place. Restore never overwrites: if the original slot was retaken
 // (e.g. you deleted the newest entry, then finalized a new one in its number),
 // the server refuses with 409 and the item stays here — surfaced as a message.
-export default function Bin() {
+export default function Bin({ onChanged }) {
   const [items, setItems] = useState(null); // null = loading
   const [note, setNote] = useState("");
 
@@ -20,6 +20,7 @@ export default function Bin() {
     const { status, body } = await restoreTrash(item.id);
     if (body.ok) {
       setItems((list) => (list || []).filter((i) => i.id !== item.id));
+      onChanged?.(); // an entry/image came back — Read should re-measure
       setNote(`restored ${item.name} to ${item.date}`);
     } else if (status === 409) {
       setNote(

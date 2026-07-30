@@ -31,7 +31,7 @@ function CardFan({ count }) {
   );
 }
 
-export default function Calendar() {
+export default function Calendar({ onChanged }) {
   const [ym, setYm] = useState(todayYM());
   const [counts, setCounts] = useState(new Map()); // date -> count
   const [openDate, setOpenDate] = useState(null);
@@ -118,7 +118,10 @@ export default function Calendar() {
         <DayOverlay
           date={openDate}
           onClose={() => setOpenDate(null)}
-          onChanged={() => setCountsKey((k) => k + 1)}
+          onChanged={() => {
+            setCountsKey((k) => k + 1); // refresh this calendar's fan counts
+            onChanged?.(); // and tell the app so Read re-measures
+          }}
         />
       )}
     </div>
