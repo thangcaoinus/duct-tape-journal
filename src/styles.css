@@ -451,6 +451,27 @@ nav button.active {
   min-height: 0;
 }
 
+/* Date "chapter" header for the first page of a day in the Reader. Lives in the
+   top padding strip (absolute, like .page-foot) so it never eats into the
+   paginated content height — pagination geometry is unchanged. */
+.page-head {
+  position: absolute;
+  left: var(--page-pad);
+  right: var(--page-pad);
+  top: calc(var(--page-pad) - 26px);
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--paper-edge);
+  padding-bottom: 4px;
+}
+
 /* Footer sits in its own reserved strip at the page bottom, out of the content
    flow, so it can never overlap or clip the text above it. */
 .page-foot {

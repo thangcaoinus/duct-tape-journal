@@ -215,6 +215,8 @@ export default function Reader() {
           entriesFor={(d) => entriesCache.current.get(d)}
         />
       )}
+      {/* Reader flows across many days, so each day's first page shows a date
+          "chapter" header — see `showDateHead` threaded into <Page> below. */}
 
       {/* Hidden off-screen measuring pass: renders one day's full flow at the
           exact page content width so we can find where pages break. */}
@@ -248,13 +250,18 @@ function Spread({ pages, leftIndex, flip, entriesFor }) {
     <div className={`book ${flip ? "flipping" : ""}`}>
       {/* Static underlay: what will be revealed under the turning leaf. */}
       <div className="book-side left">
-        <Page page={fwd ? left : back ? prevLeft : left} entriesFor={entriesFor} />
+        <Page
+          page={fwd ? left : back ? prevLeft : left}
+          entriesFor={entriesFor}
+          showDateHead
+        />
       </div>
       <div className="book-side right">
         <Page
           page={fwd ? nextRight : back ? right : right}
           entriesFor={entriesFor}
           blank={fwd ? !nextRight : false}
+          showDateHead
         />
       </div>
 
@@ -266,6 +273,7 @@ function Spread({ pages, leftIndex, flip, entriesFor }) {
               page={fwd ? right : left}
               entriesFor={entriesFor}
               blank={fwd ? !right : !left}
+              showDateHead
             />
           </div>
           <div className="leaf-face leaf-back-face">
@@ -273,6 +281,7 @@ function Spread({ pages, leftIndex, flip, entriesFor }) {
               page={fwd ? nextLeft : prevRight}
               entriesFor={entriesFor}
               blank={fwd ? !nextLeft : !prevRight}
+              showDateHead
             />
           </div>
         </div>
@@ -287,7 +296,7 @@ function Single({ pages, index, flip, entriesFor }) {
   return (
     <div className="book single">
       <div className={`shuffle ${flip ? `shuffle-${flip.dir}` : ""}`}>
-        <Page page={cur} entriesFor={entriesFor} />
+        <Page page={cur} entriesFor={entriesFor} showDateHead />
       </div>
     </div>
   );

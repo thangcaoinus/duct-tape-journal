@@ -126,12 +126,19 @@ export function computePageRanges(flowEl) {
 }
 
 // One physical page showing this page's block range of its day's flow. `blank`
-// renders an empty paper page (used to pad book spreads).
-export function Page({ page, entriesFor, blank }) {
+// renders an empty paper page (used to pad book spreads). When `showDateHead` is
+// set and this is the FIRST page of its day (`pageInDay === 0`), a date "chapter"
+// header is drawn in the top margin — it marks where a new date begins as you page
+// through the multi-day Reader flow. It lives in the padding strip (absolute, like
+// the footer), NOT in the content flow, so it never eats into CONTENT_H and can't
+// clip the paginated blocks below it.
+export function Page({ page, entriesFor, blank, showDateHead }) {
   if (blank || !page) return <div className="page page-blank" />;
   const entries = entriesFor(page.date);
+  const isDayStart = showDateHead && page.pageInDay === 0;
   return (
-    <div className="page">
+    <div className={`page ${isDayStart ? "page-daystart" : ""}`}>
+      {isDayStart && <div className="page-head">{formatDateHead(page.date)}</div>}
       <div className="page-inner">
         {entries ? (
           <DayFlow entries={entries} range={page.range} />
@@ -142,6 +149,19 @@ export function Page({ page, entriesFor, blank }) {
       <div className="page-foot">{page.date}</div>
     </div>
   );
+}
+
+// A friendly date header like "Monday, July 28, 2026" from a YYYY-MM-DD string.
+// Parsed as LOCAL (split, not new Date(str) which is UTC and can roll a day).
+function formatDateHead(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 // Load + paginate a SINGLE date's entries. Returns:
