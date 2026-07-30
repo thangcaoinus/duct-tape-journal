@@ -6,17 +6,24 @@ async function json(res) {
   return { status: res.status, body };
 }
 
+// Returns {markdown, topic} — the body plus the draft's saved topic (subject).
 export async function loadDraft(date) {
   const { body } = await json(await fetch(`/api/draft/${date}`));
-  return body.markdown ?? "";
+  return { markdown: body.markdown ?? "", topic: body.topic ?? "" };
 }
 
-export async function saveDraft(date, markdown) {
+export async function saveDraft(date, markdown, topic = "") {
   await fetch(`/api/draft/${date}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ markdown }),
+    body: JSON.stringify({ markdown, topic }),
   });
+}
+
+// The used-topic registry, for the editor's suggestion list.
+export async function loadTopics() {
+  const { body } = await json(await fetch(`/api/topics`));
+  return body.topics ?? [];
 }
 
 export async function finalize(date) {

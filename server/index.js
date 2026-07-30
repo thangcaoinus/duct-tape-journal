@@ -3,12 +3,15 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import vader from "vader-sentiment";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const DIARY = path.join(ROOT, "diary");
 const DRAFTS = path.join(DIARY, ".drafts");
 const TRASH = path.join(DIARY, ".trash");
+const META = path.join(DIARY, ".meta");
+const TOPICS_FILE = path.join(META, "topics.json");
 
 const PORT = 3001;
 const app = express();
@@ -35,6 +38,68 @@ const toDisk = (md, date) =>
     new RegExp(`\\]\\(/files/${date}/resources/`, "g"),
     "](resources/"
   );
+
+// --- Entry metadata: extensible YAML-ish frontmatter at the disk boundary. ---
+// The frontend never sees raw frontmatter — the server parses it on read (like
+// toWire) and hands back {meta, body}, and serialises it on finalize. Only a
+// block that OPENS on line 1 with `---` counts, so a `---` horizontal rule inside
+// prose is never mistaken for frontmatter. Values are strings; digit-only values
+// become numbers. New metadata fields are just new keys — no code change needed.
+function parseFrontmatter(raw) {
+  if (!raw.startsWith("---\n")) return { meta: {}, body: raw };
+  const end = raw.indexOf("\n---\n", 4);
+  if (end === -1) return { meta: {}, body: raw };
+  const block = raw.slice(4, end);
+  const body = raw.slice(end + 5); // past the closing "\n---\n"
+  const meta = {};
+  for (const line of block.split("\n")) {
+    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1];
+    const val = m[2];
+    meta[key] = /^-?\d+$/.test(val) ? Number(val) : val;
+  }
+  return { meta, body };
+}
+
+function serializeFrontmatter(meta, body) {
+  const keys = Object.keys(meta).filter((k) => meta[k] !== "" && meta[k] != null);
+  if (!keys.length) return body;
+  const block = keys.map((k) => `${k}: ${meta[k]}`).join("\n");
+  return `---\n${block}\n---\n\n${body}`;
+}
+
+// Offline sentiment (vader-sentiment): compound in -1..+1, stored as an integer
+// -100..100 so entries of different lengths compare fairly. A fun heuristic.
+function scoreSentiment(text) {
+  if (!text || !text.trim()) return 0;
+  const { compound } =
+    vader.SentimentIntensityAnalyzer.polarity_scores(text);
+  return Math.round(compound * 100);
+}
+
+// A topic is a single lowercase word (one continuous \w+), like an email subject.
+const normTopic = (t) => (t || "").toString().toLowerCase().match(/\w+/)?.[0] ?? "";
+
+async function readTopics() {
+  try {
+    const j = JSON.parse(await fs.readFile(TOPICS_FILE, "utf8"));
+    return Array.isArray(j.topics) ? j.topics : [];
+  } catch {
+    return [];
+  }
+}
+
+async function addTopic(word) {
+  const t = normTopic(word);
+  if (!t) return;
+  const topics = await readTopics();
+  if (topics.includes(t)) return;
+  topics.push(t);
+  topics.sort();
+  await fs.mkdir(META, { recursive: true });
+  await fs.writeFile(TOPICS_FILE, JSON.stringify({ topics }), "utf8");
+}
 
 // Find the next entry number in a day dir; refuse to reuse existing numbers.
 async function nextEntryNumber(dayDir) {
@@ -74,6 +139,9 @@ async function moveToTrash(absPath, meta) {
 }
 
 // --- Draft autosave / load ---
+// The draft body `.md` stays pure markdown (keeps the editor's markdown round-trip
+// clean). The draft's topic rides in a tiny sidecar `.drafts/<date>.json` so it
+// isn't jammed into the body; finalize reads it back to stamp the entry.
 app.post("/api/draft/:date", guardDate, async (req, res) => {
   const { date } = req.params;
   const md = req.body?.markdown ?? "";
@@ -83,17 +151,36 @@ app.post("/api/draft/:date", guardDate, async (req, res) => {
     toDisk(md, date),
     "utf8"
   );
+  const topic = normTopic(req.body?.topic);
+  const sidecar = path.join(DRAFTS, `${date}.json`);
+  if (topic) {
+    await fs.writeFile(sidecar, JSON.stringify({ topic }), "utf8");
+  } else {
+    await fs.rm(sidecar, { force: true }); // cleared topic → drop the sidecar
+  }
   res.json({ ok: true });
 });
 
 app.get("/api/draft/:date", guardDate, async (req, res) => {
   const { date } = req.params;
+  let markdown = "";
   try {
-    const md = await fs.readFile(path.join(DRAFTS, `${date}.md`), "utf8");
-    res.json({ ok: true, markdown: toWire(md, date) });
+    markdown = toWire(
+      await fs.readFile(path.join(DRAFTS, `${date}.md`), "utf8"),
+      date
+    );
   } catch {
-    res.json({ ok: true, markdown: "" });
+    /* no draft yet */
   }
+  let topic = "";
+  try {
+    topic = JSON.parse(
+      await fs.readFile(path.join(DRAFTS, `${date}.json`), "utf8")
+    ).topic || "";
+  } catch {
+    /* no topic sidecar */
+  }
+  res.json({ ok: true, markdown, topic });
 });
 
 // --- Finalize: promote draft -> entry-N.md (soft, never clobber) ---
@@ -117,9 +204,28 @@ app.post("/api/finalize/:date", guardDate, async (req, res) => {
   if (fsSync.existsSync(file)) {
     return res.status(409).json({ ok: false, error: "would overwrite" });
   }
-  // Draft is already on disk in disk-path form; write straight through.
-  await fs.writeFile(file, md, "utf8");
+
+  // Stamp metadata ONCE, at finalize (entries are immutable afterward). Topic
+  // comes from the draft sidecar; sentiment is scored from the body text. This
+  // is the only place frontmatter is written; more fields are just more keys.
+  const draftMetaPath = path.join(DRAFTS, `${date}.json`);
+  let topic = "";
+  try {
+    topic = normTopic(
+      JSON.parse(await fs.readFile(draftMetaPath, "utf8")).topic
+    );
+  } catch {
+    /* no topic sidecar */
+  }
+  const meta = { sentiment: scoreSentiment(md) };
+  if (topic) meta.topic = topic;
+
+  // Body on disk is already in disk-path form; prepend frontmatter and write.
+  await fs.writeFile(file, serializeFrontmatter(meta, md), "utf8");
+  if (topic) await addTopic(topic);
   await moveToTrash(draftPath, { kind: "draft", date, name: `${date}.md` });
+  // The topic sidecar is draft scaffolding — remove it (best-effort).
+  await fs.rm(draftMetaPath, { force: true });
   res.json({ ok: true, entry: `entry-${n}.md` });
 });
 
@@ -140,8 +246,11 @@ app.get("/api/day/:date", guardDate, async (req, res) => {
     .map((m) => m[0]);
   const entries = [];
   for (const name of entryFiles) {
-    const md = await fs.readFile(path.join(dayDir, name), "utf8");
-    entries.push({ name, markdown: toWire(md, date) });
+    const raw = await fs.readFile(path.join(dayDir, name), "utf8");
+    // Split frontmatter off at the boundary; the frontend gets a clean body plus
+    // a meta object. Old frontmatter-less entries → meta:{}, body unchanged.
+    const { meta, body } = parseFrontmatter(raw);
+    entries.push({ name, markdown: toWire(body, date), meta });
   }
   res.json({ ok: true, entries });
 });
@@ -308,8 +417,15 @@ app.get("/api/trash/:id", async (req, res) => {
   if (meta.kind !== "entry") {
     return res.status(400).json({ ok: false, error: "not previewable" });
   }
-  const md = await fs.readFile(blob, "utf8");
-  res.json({ ok: true, markdown: toWire(md, meta.date) });
+  const raw = await fs.readFile(blob, "utf8");
+  // Strip frontmatter so the preview matches the reader (body only).
+  const { body } = parseFrontmatter(raw);
+  res.json({ ok: true, markdown: toWire(body, meta.date) });
+});
+
+// --- Topics: the used-topic registry, for the editor's suggestion list ---
+app.get("/api/topics", async (req, res) => {
+  res.json({ ok: true, topics: await readTopics() });
 });
 
 // --- Bin: restore a trashed item to its original place (soft; rename back) ---

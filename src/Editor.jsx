@@ -5,7 +5,13 @@ import Image from "@tiptap/extension-image";
 import Mathematics from "@tiptap/extension-mathematics";
 import { Markdown } from "tiptap-markdown";
 import { today } from "./lib/date.js";
-import { loadDraft, saveDraft, finalize, uploadImage } from "./api.js";
+import {
+  loadDraft,
+  saveDraft,
+  finalize,
+  uploadImage,
+  loadTopics,
+} from "./api.js";
 import MathHelper from "./MathHelper.jsx";
 import Resources from "./Resources.jsx";
 
@@ -33,6 +39,9 @@ export default function Editor() {
   const saveTimer = useRef(null);
   const [status, setStatus] = useState("");
   const [currentMath, setCurrentMath] = useState("");
+  const [topic, setTopic] = useState(""); // subject-line topic for this entry
+  const topicRef = useRef(""); // live value for the debounced autosave closure
+  const [topics, setTopics] = useState([]); // suggestions from past finalizes
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Bump on open so the drawer reloads (e.g. an image pasted since last time).
   const [drawerKey, setDrawerKey] = useState(0);
@@ -112,7 +121,11 @@ export default function Editor() {
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
         setStatus("saving…");
-        await saveDraft(date, editor.storage.markdown.getMarkdown());
+        await saveDraft(
+          date,
+          editor.storage.markdown.getMarkdown(),
+          topicRef.current
+        );
         setStatus("saved");
       }, AUTOSAVE_MS);
     },
@@ -132,28 +145,53 @@ export default function Editor() {
     editorRef.current = editor;
   }, [editor]);
 
-  // Load today's draft on mount.
+  // Load today's draft (body + topic) and the topic suggestions on mount.
   useEffect(() => {
     if (!editor) return;
     let cancelled = false;
     (async () => {
-      const md = await loadDraft(date);
-      if (!cancelled && md) editor.commands.setContent(md);
+      const { markdown, topic: savedTopic } = await loadDraft(date);
+      if (cancelled) return;
+      if (markdown) editor.commands.setContent(markdown);
+      setTopic(savedTopic);
+      topicRef.current = savedTopic;
     })();
+    loadTopics().then((t) => !cancelled && setTopics(t));
     return () => {
       cancelled = true;
       clearTimeout(saveTimer.current);
     };
   }, [editor, date]);
 
+  // Autosave the topic on change (debounced alongside the body). A topic is one
+  // continuous word; strip anything else as the user types.
+  function onTopicChange(e) {
+    const t = (e.target.value.match(/\w+/)?.[0] ?? "").toLowerCase();
+    setTopic(t);
+    topicRef.current = t;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setStatus("saving…");
+      await saveDraft(
+        date,
+        editorRef.current?.storage.markdown.getMarkdown() ?? "",
+        t
+      );
+      setStatus("saved");
+    }, AUTOSAVE_MS);
+  }
+
   async function onFinalize() {
     if (!editor) return;
-    // Flush any pending autosave first so finalize sees the latest text.
+    // Flush any pending autosave first so finalize sees the latest text + topic.
     clearTimeout(saveTimer.current);
-    await saveDraft(date, editor.storage.markdown.getMarkdown());
+    await saveDraft(date, editor.storage.markdown.getMarkdown(), topicRef.current);
     const { status: code, body } = await finalize(date);
     if (body.ok) {
       editor.commands.setContent(""); // clear to a blank today for entry-N+1
+      setTopic("");
+      topicRef.current = "";
+      loadTopics().then(setTopics); // a just-used new topic now suggests
       setStatus(`finalized ${body.entry}`);
     } else {
       setStatus(`finalize failed (${code}): ${body.error}`);
@@ -164,6 +202,20 @@ export default function Editor() {
     <div className="editor-pane">
       <div className="toolbar">
         <span className="date">{date}</span>
+        <input
+          className="topic-input"
+          type="text"
+          list="topic-suggestions"
+          placeholder="topic…"
+          value={topic}
+          onChange={onTopicChange}
+          aria-label="Entry topic (one word)"
+        />
+        <datalist id="topic-suggestions">
+          {topics.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
         <button onClick={onFinalize}>Finalize</button>
         <button
           className="drawer-toggle"

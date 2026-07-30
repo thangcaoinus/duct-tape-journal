@@ -79,6 +79,14 @@ nav button.active {
   border-radius: 6px;
 }
 
+.toolbar .topic-input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  width: 140px;
+}
+
 .status {
   color: var(--muted);
   font-size: 14px;
@@ -871,6 +879,28 @@ button.cal-cell:hover {
 .entry-card-head code {
   font-size: 13px;
   color: var(--muted);
+}
+.entry-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto; /* keep Delete pinned right */
+  margin-left: 12px;
+  font-size: 12px;
+}
+.entry-topic {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2e6;
+  color: #4a5a2f;
+  font-weight: 600;
+}
+.sentiment-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3ede1;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .entry-card-head .danger {
   font: inherit;

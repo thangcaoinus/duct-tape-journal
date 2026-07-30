@@ -5,6 +5,25 @@ import Resources from "./Resources.jsx";
 
 const SHUFFLE_MS = 560; // keep in sync with the .shuffle transition in CSS
 
+// Small metadata tag shown above an entry in by-entry mode: the topic (like an
+// email subject) and a sentiment chip driven by the sign of the -100..100 score.
+// Both are optional — a frontmatter-less (older) entry renders nothing here.
+function EntryMeta({ meta }) {
+  if (!meta || (!meta.topic && meta.sentiment == null)) return null;
+  const s = meta.sentiment;
+  const face = s == null ? "" : s > 0 ? "🙂" : s < 0 ? "🙁" : "😐";
+  return (
+    <span className="entry-meta">
+      {meta.topic && <span className="entry-topic">#{meta.topic}</span>}
+      {s != null && (
+        <span className="sentiment-chip" title="sentiment (-100…100)">
+          {face} {s > 0 ? `+${s}` : s}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Full-screen overlay that reads ONE day's entries over a dimmed backdrop (the
 // calendar stays mounted, faded, behind it). Two view modes:
 //   - "flow"    : the day joined into one continuous flow, paginated, stepped as
@@ -220,6 +239,7 @@ export default function DayOverlay({ date, onClose, onChanged }) {
                       <div className="entry-card">
                         <div className="entry-card-head">
                           <code>{curEntry.name.replace(/\.md$/, "")}</code>
+                          <EntryMeta meta={curEntry.meta} />
                           <button
                             className="danger"
                             onClick={() => onDeleteEntry(curEntry.name)}
