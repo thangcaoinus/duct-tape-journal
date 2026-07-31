@@ -12,6 +12,7 @@ const DRAFTS = path.join(DIARY, ".drafts");
 const TRASH = path.join(DIARY, ".trash");
 const META = path.join(DIARY, ".meta");
 const TOPICS_FILE = path.join(META, "topics.json");
+const CONCEPTS = path.join(META, "concepts");
 
 const PORT = 3001;
 const app = express();
@@ -99,6 +100,169 @@ async function addTopic(word) {
   topics.sort();
   await fs.mkdir(META, { recursive: true });
   await fs.writeFile(TOPICS_FILE, JSON.stringify({ topics }), "utf8");
+}
+
+// --- Concepts: an Obsidian-lite tagging layer (no traversal). ---
+// A concept is a named idea with optional alias keywords, its own free-form notes
+// page, and an APPEND-ONLY list of the entries that reference it. Matching is by
+// whole-word grep of an entry's BODY (never its frontmatter) against the concept's
+// name + keywords. Links are made at finalize (new entry vs. all concepts) and on
+// manual rescan (whole archive vs. one concept), and are NEVER removed — a deleted
+// (tore'd) entry keeps its link and is just flagged live. Storage mirrors topics:
+// one JSON per concept under .meta/concepts/<slug>.json. All handling stays at the
+// server boundary; nothing here touches the immutable entry files.
+const conceptPath = (slug) => path.join(CONCEPTS, `${path.basename(slug)}.json`);
+
+async function readConcept(slug) {
+  try {
+    return JSON.parse(await fs.readFile(conceptPath(slug), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function writeConcept(slug, obj) {
+  await fs.mkdir(CONCEPTS, { recursive: true });
+  await fs.writeFile(conceptPath(slug), JSON.stringify(obj, null, 2), "utf8");
+}
+
+async function listConcepts() {
+  let files = [];
+  try {
+    files = await fs.readdir(CONCEPTS);
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue;
+    const c = await readConcept(f.slice(0, -".json".length));
+    if (!c) continue;
+    out.push({
+      slug: f.slice(0, -".json".length),
+      name: c.name,
+      keywords: c.keywords || [],
+      linkCount: (c.links || []).length,
+      // A short, whitespace-collapsed peek at the notes page, for the read-side
+      // hover preview. Empty when there are no notes.
+      snippet: (c.page || "").replace(/\s+/g, " ").trim().slice(0, 140),
+    });
+  }
+  out.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  return out;
+}
+
+// The normalized set of words a concept matches on: its name plus its keywords.
+function matchTerms(concept) {
+  const terms = [concept.name, ...(concept.keywords || [])]
+    .map(normTopic)
+    .filter(Boolean);
+  return [...new Set(terms)];
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Return the first term that appears as a whole word in `body`, or null. Grep the
+// body only — callers pass parseFrontmatter(raw).body so a `topic:`/`sentiment:`
+// frontmatter line never counts as a match.
+function entryMatches(body, terms) {
+  if (!terms.length || !body) return null;
+  const re = new RegExp(`\\b(${terms.map(escapeRe).join("|")})\\b`, "i");
+  const m = body.match(re);
+  return m ? m[1].toLowerCase() : null;
+}
+
+// Append a link if this {date, entry} isn't already recorded. Only ever ADDS.
+// Returns true when a new link was added.
+function addLink(concept, { date, entry, matched }) {
+  concept.links = concept.links || [];
+  if (concept.links.some((l) => l.date === date && l.entry === entry)) {
+    return false;
+  }
+  concept.links.push({ date, entry, matched, at: new Date().toISOString() });
+  concept.updatedAt = new Date().toISOString();
+  return true;
+}
+
+// Finalize hook: grep one just-written entry against every concept and link it.
+// Best-effort — a failure here must never fail the finalize itself.
+async function scanEntryAgainstAllConcepts(date, entry, body) {
+  let files = [];
+  try {
+    files = await fs.readdir(CONCEPTS);
+  } catch {
+    return;
+  }
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue;
+    const slug = f.slice(0, -".json".length);
+    const c = await readConcept(slug);
+    if (!c) continue;
+    const matched = entryMatches(body, matchTerms(c));
+    if (matched && addLink(c, { date, entry, matched })) {
+      await writeConcept(slug, c);
+    }
+  }
+}
+
+// Rescan/create: grep every finalized entry in the archive against one concept
+// and add any new links. Mutates `concept` in place; returns the count added.
+async function scanArchiveForConcept(concept) {
+  const terms = matchTerms(concept);
+  if (!terms.length) return 0;
+  let dirs = [];
+  try {
+    dirs = await fs.readdir(DIARY, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let added = 0;
+  for (const d of dirs) {
+    if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
+    let inner = [];
+    try {
+      inner = await fs.readdir(path.join(DIARY, d.name));
+    } catch {
+      continue;
+    }
+    for (const name of inner) {
+      if (!/^entry-\d+\.md$/.test(name)) continue;
+      const raw = await fs.readFile(path.join(DIARY, d.name, name), "utf8");
+      const { body } = parseFrontmatter(raw);
+      const matched = entryMatches(body, terms);
+      if (matched && addLink(concept, { date: d.name, entry: name, matched })) {
+        added++;
+      }
+    }
+  }
+  return added;
+}
+
+// Find a trashed entry's blob for a given origin {date, name} by scanning the
+// trash sidecars (reuses the soft-delete sidecar mechanism). Lets us preview a
+// linked entry that's currently in tore. Returns the blob's absolute path or null.
+async function findTrashedEntry(date, name) {
+  let files = [];
+  try {
+    files = await fs.readdir(TRASH);
+  } catch {
+    return null;
+  }
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue;
+    const blob = f.slice(0, -".json".length);
+    if (!files.includes(blob)) continue;
+    let meta;
+    try {
+      meta = JSON.parse(await fs.readFile(path.join(TRASH, f), "utf8"));
+    } catch {
+      continue;
+    }
+    if (meta.kind === "entry" && meta.date === date && meta.name === name) {
+      return path.join(TRASH, blob);
+    }
+  }
+  return null;
 }
 
 // Find the next entry number in a day dir; refuse to reuse existing numbers.
@@ -226,6 +390,14 @@ app.post("/api/finalize/:date", guardDate, async (req, res) => {
   await moveToTrash(draftPath, { kind: "draft", date, name: `${date}.md` });
   // The topic sidecar is draft scaffolding — remove it (best-effort).
   await fs.rm(draftMetaPath, { force: true });
+  // Auto-link this new entry to any matching concepts. Best-effort: a concept
+  // scan hiccup must never fail an otherwise-successful finalize. `md` is the
+  // pre-frontmatter draft body, which is exactly what we want to grep.
+  try {
+    await scanEntryAgainstAllConcepts(date, `entry-${n}.md`, md);
+  } catch (e) {
+    console.error("concept scan on finalize failed:", e);
+  }
   res.json({ ok: true, entry: `entry-${n}.md` });
 });
 
@@ -469,6 +641,103 @@ app.post("/api/trash/restore/:id", async (req, res) => {
   await fs.rename(blob, dest);
   await fs.rm(sidecar, { force: true }); // drop the now-consumed origin record
   res.json({ ok: true, date, name: safeName });
+});
+
+// --- Concepts: the tagging layer (list / create / read / edit / rescan / preview) ---
+
+// List all concepts (summaries) for the tab's list view.
+app.get("/api/concepts", async (req, res) => {
+  res.json({ ok: true, concepts: await listConcepts() });
+});
+
+// Create a concept. Slug from the name; refuse to clobber an existing one (409).
+// Greps the whole archive immediately so a new concept gathers existing matches.
+app.post("/api/concepts", async (req, res) => {
+  const name = normTopic(req.body?.name);
+  if (!name) {
+    return res.status(400).json({ ok: false, error: "name must be one word" });
+  }
+  const slug = name; // normTopic already yields a safe single-token slug
+  if (fsSync.existsSync(conceptPath(slug))) {
+    return res.status(409).json({ ok: false, error: "concept already exists" });
+  }
+  const keywords = Array.isArray(req.body?.keywords)
+    ? [...new Set(req.body.keywords.map(normTopic).filter(Boolean))]
+    : [];
+  const now = new Date().toISOString();
+  const concept = {
+    name,
+    keywords,
+    page: typeof req.body?.page === "string" ? req.body.page : "",
+    links: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  await scanArchiveForConcept(concept); // grep-everything on create
+  await writeConcept(slug, concept);
+  res.json({ ok: true, concept });
+});
+
+// Read one concept in full, annotating each link with a live `deleted` flag
+// (true when the origin entry no longer exists on disk, i.e. it's in tore).
+app.get("/api/concepts/:slug", async (req, res) => {
+  const slug = path.basename(req.params.slug);
+  const c = await readConcept(slug);
+  if (!c) return res.status(404).json({ ok: false, error: "not found" });
+  const links = (c.links || []).map((l) => ({
+    ...l,
+    deleted: !fsSync.existsSync(path.join(DIARY, l.date, l.entry)),
+  }));
+  res.json({ ok: true, concept: { ...c, slug, links } });
+});
+
+// Update editable fields only (name display, keywords, page notes). Never
+// touches links — they're append-only and permanent.
+app.put("/api/concepts/:slug", async (req, res) => {
+  const slug = path.basename(req.params.slug);
+  const c = await readConcept(slug);
+  if (!c) return res.status(404).json({ ok: false, error: "not found" });
+  if (typeof req.body?.name === "string") {
+    const nm = normTopic(req.body.name);
+    if (nm) c.name = nm; // display name; slug (filename) stays fixed
+  }
+  if (Array.isArray(req.body?.keywords)) {
+    c.keywords = [...new Set(req.body.keywords.map(normTopic).filter(Boolean))];
+  }
+  if (typeof req.body?.page === "string") c.page = req.body.page;
+  c.updatedAt = new Date().toISOString();
+  await writeConcept(slug, c);
+  res.json({ ok: true, concept: { ...c, slug } });
+});
+
+// Rescan the whole archive against this concept's current keywords. Only ADDS
+// links; returns how many were newly added.
+app.post("/api/concepts/:slug/rescan", async (req, res) => {
+  const slug = path.basename(req.params.slug);
+  const c = await readConcept(slug);
+  if (!c) return res.status(404).json({ ok: false, error: "not found" });
+  const added = await scanArchiveForConcept(c);
+  if (added) await writeConcept(slug, c);
+  res.json({ ok: true, added });
+});
+
+// Read a linked entry's markdown BODY for preview — whether the entry is live
+// or currently in tore (found via its trash sidecar). Frontmatter stripped,
+// wire paths, so it renders like the reader.
+app.get("/api/concepts/:slug/entry/:date/:name", guardDate, async (req, res) => {
+  const { date } = req.params;
+  const name = path.basename(req.params.name);
+  if (!/^entry-\d+\.md$/.test(name)) {
+    return res.status(400).json({ ok: false, error: "bad entry name" });
+  }
+  let blob = path.join(DIARY, date, name);
+  if (!fsSync.existsSync(blob)) {
+    blob = await findTrashedEntry(date, name); // linked but tore'd — read trash
+    if (!blob) return res.status(404).json({ ok: false, error: "not found" });
+  }
+  const raw = await fs.readFile(blob, "utf8");
+  const { body } = parseFrontmatter(raw);
+  res.json({ ok: true, markdown: toWire(body, date) });
 });
 
 // --- Static serve of diary/ so images display ---

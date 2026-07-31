@@ -5,13 +5,22 @@
 // (so a tall KaTeX formula or image is never sliced). Kept deliberately minimal
 // — this is the pagination that was stabilized for the Reader; don't redesign.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Mathematics from "@tiptap/extension-mathematics";
 import { Markdown } from "tiptap-markdown";
 import { loadDay } from "../api.js";
+import { useConcepts, buildMatcher, openConceptPage } from "./concepts.jsx";
 
 // Fixed page geometry (px). Kept in sync with the CSS custom properties in
 // styles.css (--page-w/h/pad/foot-h).
@@ -53,6 +62,100 @@ export function DayFlow({ entries, onImagesLoad, range }) {
   );
 
   const ref = useRef(null);
+
+  // Concept-word highlighting: mark any word matching a concept name/keyword, and
+  // pop a small preview on hover. Applied here (the shared read renderer) so every
+  // read view — Reader, day overlay, Tore preview, concept previews — gets it. It
+  // must stay geometry-neutral (inline spans, no box-model change) so pagination
+  // measurement, which runs the SAME DayFlow off-screen, still breaks identically.
+  const concepts = useConcepts();
+  const matcher = useMemo(() => buildMatcher(concepts), [concepts]);
+  // pop = the hovered mark's info + its anchor rect; the card is then positioned
+  // (above the word, centered, flipping below only near the top edge) once its own
+  // size is known — see the layout effect below.
+  const [pop, setPop] = useState(null);
+  const popRef = useRef(null);
+  const [popPos, setPopPos] = useState(null); // {left, top, side} once measured
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pm = el.querySelector(".ProseMirror");
+    if (!pm) return;
+    highlightConcepts(pm, matcher);
+  }, [editor, markdown, matcher]);
+
+  // One delegated hover handler for all marks in this flow.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    function show(e) {
+      const mark = e.target.closest?.(".concept-mark");
+      if (!mark || !el.contains(mark)) return;
+      const info = matcher.termMap.get(mark.dataset.term);
+      if (!info) return;
+      const r = mark.getBoundingClientRect();
+      // Anchor to the word's center-top; final placement waits for the card size.
+      setPopPos(null);
+      setPop({ rect: { cx: r.left + r.width / 2, top: r.top, bottom: r.bottom }, ...info });
+    }
+    function hide(e) {
+      if (e.target.closest?.(".concept-mark")) {
+        setPop(null);
+        setPopPos(null);
+      }
+    }
+    // Click (or Enter/Space on a focused mark) opens that concept's page.
+    function open(mark) {
+      const info = matcher.termMap.get(mark.dataset.term);
+      if (info?.slug) openConceptPage(info.slug);
+    }
+    function onClick(e) {
+      const mark = e.target.closest?.(".concept-mark");
+      if (mark && el.contains(mark)) open(mark);
+    }
+    function onKey(e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const mark = e.target.closest?.(".concept-mark");
+      if (mark && el.contains(mark)) {
+        e.preventDefault();
+        open(mark);
+      }
+    }
+    el.addEventListener("mouseover", show);
+    el.addEventListener("mouseout", hide);
+    el.addEventListener("focusin", show);
+    el.addEventListener("focusout", hide);
+    el.addEventListener("click", onClick);
+    el.addEventListener("keydown", onKey);
+    return () => {
+      el.removeEventListener("mouseover", show);
+      el.removeEventListener("mouseout", hide);
+      el.removeEventListener("focusin", show);
+      el.removeEventListener("focusout", hide);
+      el.removeEventListener("click", onClick);
+      el.removeEventListener("keydown", onKey);
+    };
+  }, [matcher]);
+
+  // Place the card just above the word, horizontally centered on it, clamped to
+  // the viewport; flip to just below when there isn't room above. Runs after the
+  // card mounts so we know its real size.
+  useLayoutEffect(() => {
+    if (!pop || !popRef.current) return;
+    const card = popRef.current.getBoundingClientRect();
+    const GAP = 8;
+    const M = 8; // viewport margin
+    let left = pop.rect.cx - card.width / 2;
+    left = Math.max(M, Math.min(left, window.innerWidth - card.width - M));
+    const above = pop.rect.top - GAP - card.height;
+    const side = above >= M ? "top" : "bottom";
+    const top = side === "top" ? above : pop.rect.bottom + GAP;
+    // Keep the caret under the word even when the card is clamped to a screen edge.
+    const caret = Math.max(10, Math.min(pop.rect.cx - left, card.width - 10));
+    setPopPos({ left, top, side, caret });
+  }, [pop]);
+
   useEffect(() => {
     const el = ref.current;
     if (!el || !onImagesLoad) return;
@@ -94,8 +197,94 @@ export function DayFlow({ entries, onImagesLoad, range }) {
   return (
     <div ref={ref} className="day-flow">
       <EditorContent editor={editor} className="prose" />
+      {/* Portal to <body>: read views (the book) sit inside a `perspective`/
+          transform subtree, which would otherwise re-anchor position:fixed and
+          shift the card. Rendering at the body root keeps fixed = viewport, so the
+          getBoundingClientRect coordinates line up everywhere. */}
+      {pop &&
+        createPortal(
+          <div
+            ref={popRef}
+            className={`concept-pop ${popPos ? `pop-${popPos.side}` : "pop-hidden"}`}
+            style={
+              popPos
+                ? { left: popPos.left, top: popPos.top, "--caret": `${popPos.caret}px` }
+                : undefined
+            }
+          >
+            <span className="concept-pop-name">{pop.name}</span>
+            <span className="concept-pop-snippet">
+              {pop.snippet || "no notes yet"}
+            </span>
+            <span className="concept-pop-count">
+              {pop.linkCount} linked entr{pop.linkCount === 1 ? "y" : "ies"}
+            </span>
+          </div>,
+          document.body
+        )}
     </div>
   );
+}
+
+// Wrap every whole-word concept match in a .concept-mark span, in place, over the
+// text nodes of a rendered .ProseMirror. Skips code/pre and anything already
+// marked, so markup, links, and math ($...$ rendered by KaTeX) are never touched.
+// Idempotent: it first unwraps any prior marks, so re-running on a concept change
+// or re-render is safe. Geometry-neutral by construction (the spans add no box).
+function highlightConcepts(pm, matcher) {
+  // Unwrap previous marks (replace each span with its text) so we start clean.
+  pm.querySelectorAll(".concept-mark").forEach((m) => {
+    m.replaceWith(document.createTextNode(m.textContent));
+  });
+  pm.normalize(); // merge adjacent text nodes split by the unwrap
+  if (!matcher.regex) return;
+
+  // Collect candidate text nodes first (mutating during a tree walk is unsafe).
+  const walker = document.createTreeWalker(pm, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      // Skip code/pre and any element we've already marked or that is math.
+      let p = node.parentElement;
+      while (p && p !== pm) {
+        const tag = p.tagName;
+        if (tag === "CODE" || tag === "PRE") return NodeFilter.FILTER_REJECT;
+        if (p.classList.contains("concept-mark")) return NodeFilter.FILTER_REJECT;
+        if (p.hasAttribute("data-type") || p.classList.contains("katex"))
+          return NodeFilter.FILTER_REJECT;
+        p = p.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const targets = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) targets.push(n);
+
+  for (const textNode of targets) {
+    const text = textNode.nodeValue;
+    matcher.regex.lastIndex = 0;
+    let m;
+    let last = 0;
+    const frag = document.createDocumentFragment();
+    let matched = false;
+    while ((m = matcher.regex.exec(text))) {
+      matched = true;
+      if (m.index > last) {
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      }
+      const span = document.createElement("span");
+      span.className = "concept-mark";
+      span.textContent = m[0];
+      span.dataset.term = m[0].toLowerCase();
+      span.tabIndex = 0; // focusable so the preview is keyboard-reachable
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (!matched) continue;
+    if (last < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(last)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  }
 }
 
 // Measure a day's flow off-screen and return, for each page, the RANGE of

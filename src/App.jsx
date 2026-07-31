@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Editor from "./Editor.jsx";
 import Reader from "./Reader.jsx";
 import Calendar from "./Calendar.jsx";
+import Concepts from "./Concepts.jsx";
 import Bin from "./Bin.jsx";
+import { onOpenConcept } from "./lib/concepts.jsx";
 
 export default function App() {
   // Boots to write mode (today's editor). A plain toggle flips modes.
@@ -20,6 +22,19 @@ export default function App() {
   // NOT bump this — only real edits do.
   const [dataVersion, setDataVersion] = useState(0);
   const bumpData = () => setDataVersion((v) => v + 1);
+
+  // Clicking a highlighted concept word (in any read view) jumps to that concept's
+  // page. `conceptTarget` bumps a nonce so re-clicking the SAME slug re-opens it
+  // even if we're already on the Concepts tab.
+  const [conceptTarget, setConceptTarget] = useState(null); // {slug, nonce} | null
+  useEffect(
+    () =>
+      onOpenConcept((slug) => {
+        setConceptTarget({ slug, nonce: Date.now() });
+        setMode("concepts");
+      }),
+    []
+  );
 
   function go(next) {
     if (next === "read") setReaderMounted(true);
@@ -50,6 +65,12 @@ export default function App() {
             Calendar
           </button>
           <button
+            className={mode === "concepts" ? "active" : ""}
+            onClick={() => go("concepts")}
+          >
+            Concepts
+          </button>
+          <button
             className={mode === "bin" ? "active" : ""}
             onClick={() => go("bin")}
           >
@@ -60,6 +81,9 @@ export default function App() {
       <main>
         {mode === "write" && <Editor onFinalized={bumpData} />}
         {mode === "calendar" && <Calendar onChanged={bumpData} />}
+        {/* Concepts is self-contained — it links entries but doesn't affect Read
+            pagination, so it needs no dataVersion wiring. */}
+        {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
         {mode === "bin" && <Bin onChanged={bumpData} />}
 
         {/* Reader stays mounted once opened; hidden off-screen when inactive so it

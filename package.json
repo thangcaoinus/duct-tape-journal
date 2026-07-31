@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
     "server": "node server/index.js",
     "start": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev\""
   },

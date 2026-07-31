@@ -85,6 +85,68 @@ export async function restoreTrash(id) {
   );
 }
 
+// --- Concepts: the tagging layer ---
+
+// Summaries for the list view: [{slug, name, keywords, linkCount}].
+export async function loadConcepts() {
+  const { body } = await json(await fetch(`/api/concepts`));
+  return body.concepts ?? [];
+}
+
+// Create a concept. Returns {status, body} so the UI can surface a 409 (the slug
+// is already taken) as a friendly message, like restoreTrash does.
+export async function createConcept({ name, keywords = [], page = "" }) {
+  return json(
+    await fetch(`/api/concepts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, keywords, page }),
+    })
+  );
+}
+
+// Full concept incl. links (each link annotated with a live `deleted` flag).
+export async function loadConcept(slug) {
+  const { body } = await json(
+    await fetch(`/api/concepts/${encodeURIComponent(slug)}`)
+  );
+  return body.concept ?? null;
+}
+
+// Update editable fields (name, keywords, page). Never touches links server-side.
+export async function saveConcept(slug, { name, keywords, page }) {
+  const { body } = await json(
+    await fetch(`/api/concepts/${encodeURIComponent(slug)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, keywords, page }),
+    })
+  );
+  return body.concept ?? null;
+}
+
+// Re-grep the whole archive against this concept's keywords; returns count added.
+export async function rescanConcept(slug) {
+  const { body } = await json(
+    await fetch(`/api/concepts/${encodeURIComponent(slug)}/rescan`, {
+      method: "POST",
+    })
+  );
+  return body.added ?? 0;
+}
+
+// A linked entry's markdown body (wire paths) for preview — live or in tore.
+export async function loadConceptEntry(slug, date, name) {
+  const { body } = await json(
+    await fetch(
+      `/api/concepts/${encodeURIComponent(slug)}/entry/${date}/${encodeURIComponent(
+        name
+      )}`
+    )
+  );
+  return body.markdown ?? "";
+}
+
 export async function loadResources(date) {
   const { body } = await json(await fetch(`/api/resources/${date}`));
   return body.resources ?? [];

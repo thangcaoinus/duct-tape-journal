@@ -4,6 +4,10 @@
   --muted: #8a8577;
   --line: #e4dfd3;
   --accent: #5b7a6b;
+  /* Concept-word highlight — a muted indigo, distinct from --accent (green) and
+     the "in tore" rust, so marked words don't read as links or warnings. */
+  --concept: #6b5bd1;
+  --concept-tint: rgba(107, 91, 209, 0.1);
 }
 
 * {
@@ -1034,4 +1038,198 @@ button.cal-cell:hover {
 /* Show the previewed entry in full (no page clipping in the bin). */
 .bin-preview .day-flow .ProseMirror {
   height: auto;
+}
+
+/* --- Concepts tab: the tagging layer (list + detail, reuses .bin-* / .resource-*) --- */
+.concept-new {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+.concept-new .topic-input,
+.concept-keywords-input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.concept-keywords-input {
+  flex: 1;
+  min-width: 200px;
+}
+.concept-new button,
+.concept-actions button {
+  font: inherit;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: #fff;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* List rows: a full-width clickable button carrying name + count + keyword chips. */
+.concept-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+.concept-open:hover {
+  background: var(--line);
+  border-radius: 6px;
+}
+.concept-name {
+  font-weight: 600;
+}
+.concept-name::before {
+  content: "#";
+  color: var(--muted);
+}
+.concept-chips {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.concept-chip {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--line);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+/* Detail editor: keywords + page notes stacked. */
+.concept-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.concept-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.concept-field > span {
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.concept-page {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  resize: vertical;
+}
+.concept-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* A linked entry that's currently soft-deleted still shows — just flagged. */
+.concept-tore-tag {
+  color: #b3542f;
+  font-weight: 600;
+}
+
+/* --- Concept-word highlight in read views (Obsidian-like, geometry-neutral!) --- */
+/* CRITICAL: a .concept-mark must add NO box that affects layout — no padding,
+   border-width, margin, or font change — or it would alter line-wrapping and
+   desync the paginator (which measures the same DayFlow off-screen). We use only
+   color + a thin underline; the hover pill is a box-shadow (paints, no reflow). */
+.concept-mark {
+  color: var(--concept);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--concept) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: text-decoration-color 0.12s ease, box-shadow 0.12s ease;
+}
+.concept-mark:hover,
+.concept-mark:focus-visible {
+  text-decoration-color: var(--concept);
+  /* A soft accent pill WITHOUT changing the box: box-shadow spreads paint only. */
+  box-shadow: 0 0 0 2px var(--concept-tint);
+  background: var(--concept-tint);
+  outline: none;
+}
+
+/* The hover/focus preview card — a small Obsidian-style hover popover, anchored
+   just above (or below) the word. Fixed-positioned from the mark's rect; never
+   intercepts pointer events so it can't fight the hover it describes. */
+.concept-pop {
+  position: fixed;
+  z-index: 50;
+  width: max-content;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  background: var(--paper, #fffdf8);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  font-size: 12.5px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+/* Before it's measured/placed, keep it out of view (no flash at 0,0). */
+.concept-pop.pop-hidden {
+  opacity: 0;
+  left: -9999px;
+  top: -9999px;
+}
+/* A little caret pointing at the word. */
+.concept-pop::after {
+  content: "";
+  position: absolute;
+  left: var(--caret, 50%);
+  transform: translateX(-50%) rotate(45deg);
+  width: 9px;
+  height: 9px;
+  background: var(--paper, #fffdf8);
+  border: 1px solid var(--line);
+}
+.concept-pop.pop-top::after {
+  bottom: -5px;
+  border-top: none;
+  border-left: none;
+}
+.concept-pop.pop-bottom::after {
+  top: -5px;
+  border-bottom: none;
+  border-right: none;
+}
+.concept-pop-name {
+  font-weight: 700;
+  color: var(--concept);
+  letter-spacing: 0.01em;
+}
+.concept-pop-name::before {
+  content: "#";
+  opacity: 0.55;
+}
+.concept-pop-snippet {
+  color: var(--ink);
+}
+.concept-pop-count {
+  font-size: 11px;
+  color: var(--muted);
 }
