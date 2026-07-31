@@ -6,8 +6,51 @@ import Concepts from "./Concepts.jsx";
 import Bin from "./Bin.jsx";
 import { onOpenConcept } from "./lib/concepts.jsx";
 
+// A small, single-stroke icon set for the rail. Drawn inline (not emoji/glyphs)
+// so the whole nav shares one weight and cap style. currentColor + CSS stroke.
+const Icon = {
+  write: (
+    <path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z" />
+  ),
+  read: (
+    <>
+      <path d="M12 5.5C10.5 4.5 8 4 6 4H3v13h3c2 0 4.5.5 6 1.5" />
+      <path d="M12 5.5C13.5 4.5 16 4 18 4h3v13h-3c-2 0-4.5.5-6 1.5" />
+      <path d="M12 5.5v13" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
+      <path d="M3.5 9h17M8 3v3M16 3v3" />
+    </>
+  ),
+  concepts: (
+    <>
+      <circle cx="6" cy="7" r="2.2" />
+      <circle cx="17" cy="6" r="2.2" />
+      <circle cx="12" cy="17" r="2.2" />
+      <path d="M7.6 8.6 10.6 15M15.3 7.7 12.9 15M8 7.2l6.8-.9" />
+    </>
+  ),
+  tore: (
+    <>
+      <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+    </>
+  ),
+};
+
+function RailIcon({ name }) {
+  return (
+    <svg className="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {Icon[name]}
+    </svg>
+  );
+}
+
 export default function App() {
-  // Boots to write mode (today's editor). A plain toggle flips modes.
+  // Boots to write mode (today's editor). The rail flips modes.
   const [mode, setMode] = useState("write");
 
   // The Reader is expensive to build (it loads every day and measures pagination
@@ -41,60 +84,77 @@ export default function App() {
     setMode(next);
   }
 
-  return (
-    <div className={`app ${mode === "calendar" ? "app-wide" : ""}`}>
-      <header className="app-header">
-        <h1>Duct-Tape Diary</h1>
-        <nav>
-          <button
-            className={mode === "write" ? "active" : ""}
-            onClick={() => go("write")}
-          >
-            Write
-          </button>
-          <button
-            className={mode === "read" ? "active" : ""}
-            onClick={() => go("read")}
-          >
-            Read
-          </button>
-          <button
-            className={mode === "calendar" ? "active" : ""}
-            onClick={() => go("calendar")}
-          >
-            Calendar
-          </button>
-          <button
-            className={mode === "concepts" ? "active" : ""}
-            onClick={() => go("concepts")}
-          >
-            Concepts
-          </button>
-          <button
-            className={mode === "bin" ? "active" : ""}
-            onClick={() => go("bin")}
-          >
-            Tore
-          </button>
-        </nav>
-      </header>
-      <main>
-        {mode === "write" && <Editor onFinalized={bumpData} />}
-        {mode === "calendar" && <Calendar onChanged={bumpData} />}
-        {/* Concepts is self-contained — it links entries but doesn't affect Read
-            pagination, so it needs no dataVersion wiring. */}
-        {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
-        {mode === "bin" && <Bin onChanged={bumpData} />}
+  // Calendar + Read get the wider content bound within the same shell.
+  const wide = mode === "calendar" || mode === "read";
 
-        {/* Reader stays mounted once opened; hidden off-screen when inactive so it
-            keeps its loaded/measured state and never re-runs the measure pass on a
-            tab switch. `active` lets it pause measuring while hidden. */}
-        {readerMounted && (
-          <div className={mode === "read" ? "" : "pane-hidden"}>
-            <Reader active={mode === "read"} dataVersion={dataVersion} />
-          </div>
-        )}
-      </main>
+  return (
+    <div className="app-shell">
+      <nav className="rail" aria-label="Primary">
+        <div className="rail-brand">
+          Duct-Tape
+          <br />
+          Diary
+          <span className="rail-brand-sub">a local diary</span>
+        </div>
+
+        <div className="rail-nav">
+          <span className="rail-group-label">Write</span>
+          <RailLink id="write" mode={mode} onGo={go} icon="write" label="Write" />
+
+          <span className="rail-group-label">Review</span>
+          <RailLink id="read" mode={mode} onGo={go} icon="read" label="Read" />
+          <RailLink
+            id="calendar"
+            mode={mode}
+            onGo={go}
+            icon="calendar"
+            label="Calendar"
+          />
+          <RailLink
+            id="concepts"
+            mode={mode}
+            onGo={go}
+            icon="concepts"
+            label="Concepts"
+          />
+
+          <span className="rail-group-label">Recover</span>
+          <RailLink id="bin" mode={mode} onGo={go} icon="tore" label="Tore" />
+        </div>
+      </nav>
+
+      <div className="app-content">
+        <main className={`app ${wide ? "app-wide" : ""}`}>
+          {mode === "write" && <Editor onFinalized={bumpData} />}
+          {mode === "calendar" && <Calendar onChanged={bumpData} />}
+          {/* Concepts is self-contained — it links entries but doesn't affect Read
+              pagination, so it needs no dataVersion wiring. */}
+          {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
+          {mode === "bin" && <Bin onChanged={bumpData} />}
+
+          {/* Reader stays mounted once opened; hidden off-screen when inactive so
+              it keeps its loaded/measured state and never re-runs the measure pass
+              on a tab switch. `active` lets it pause measuring while hidden. */}
+          {readerMounted && (
+            <div className={mode === "read" ? "" : "pane-hidden"}>
+              <Reader active={mode === "read"} dataVersion={dataVersion} />
+            </div>
+          )}
+        </main>
+      </div>
     </div>
+  );
+}
+
+function RailLink({ id, mode, onGo, icon, label }) {
+  return (
+    <button
+      className={`rail-link ${mode === id ? "active" : ""}`}
+      aria-current={mode === id ? "page" : undefined}
+      onClick={() => onGo(id)}
+    >
+      <RailIcon name={icon} />
+      {label}
+    </button>
   );
 }

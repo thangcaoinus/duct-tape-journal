@@ -1,13 +1,64 @@
 :root {
-  --bg: #faf8f3;
+  /* --- Palette: warm paper-diary. Ivory ground, ink text, a sage accent. --- */
+  --bg: #f4efe4; /* app ground — a touch deeper so paper surfaces lift off it */
+  --paper-2: #fbf7ee; /* the rail / secondary paper tone */
   --ink: #23201b;
   --muted: #8a8577;
   --line: #e4dfd3;
+  --line-soft: #ece7dc; /* hairline rules that shouldn't shout */
   --accent: #5b7a6b;
+  --accent-deep: #4a6559; /* hover/active for accent-filled controls */
+  --accent-tint: #e9efe9; /* soft accent wash for hovers / active nav */
+
+  /* Danger (soft-delete / rust). Consolidated from the two near-identical hexes
+     (#b4562f / #b3542f) that used to drift. */
+  --danger: #b3542f;
+  --danger-bg: #fdf4f0;
+  --danger-border: #e6c4b6;
+
+  /* Entry topic chip. */
+  --topic-fg: #4a5a2f;
+  --topic-bg: #eef2e6;
+
+  /* Overlay dim + glass. */
+  --overlay-dim: rgba(20, 18, 14, 0.55);
+
   /* Concept-word highlight — a muted indigo, distinct from --accent (green) and
      the "in tore" rust, so marked words don't read as links or warnings. */
   --concept: #6b5bd1;
   --concept-tint: rgba(107, 91, 209, 0.1);
+
+  /* --- Typography: sans body, serif for the wordmark + section headings. --- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Palladio,
+    "Book Antiqua", Georgia, serif;
+  --t-title: 26px; /* page + wordmark */
+  --t-head: 18px; /* section heads */
+  --t-body: 16px;
+  --t-small: 13px;
+
+  /* --- Spacing scale (4px base). Use these, not one-off values. --- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 40px;
+  --s-8: 48px;
+
+  /* --- Radius + elevation. One depth system for every surface. --- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(31, 26, 18, 0.06);
+  --shadow-md: 0 4px 16px rgba(31, 26, 18, 0.1);
+  --shadow-lg: 0 12px 32px rgba(31, 26, 18, 0.16);
+
+  /* --- Shell frame. One unified content width for every tab. --- */
+  --rail-w: 208px;
+  --content-max: 820px;
+  --content-wide: 980px; /* Reader/Calendar breathe within the same shell */
 }
 
 * {
@@ -18,92 +69,370 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font: var(--t-body) / 1.6 var(--font-sans);
 }
 
-.app {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 24px 20px 80px;
+/* --- App shell: fixed left rail + a centered content column. One frame for
+   every tab, so switching tabs never reflows or re-centers the whole page. --- */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  min-height: 100vh;
 }
 
-/* The calendar wants room to breathe. */
-.app.app-wide {
-  max-width: 1100px;
-}
-
-.app-header {
+/* The left navigation rail. */
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
-  margin-bottom: 20px;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--s-4);
+  background: var(--paper-2);
+  border-right: 1px solid var(--line);
 }
 
-.app-header h1 {
-  font-size: 20px;
+.rail-brand {
+  font-family: var(--font-serif);
+  font-size: var(--t-title);
   font-weight: 600;
-  margin: 0;
+  line-height: 1.15;
+  color: var(--ink);
+  margin: 0 var(--s-2) var(--s-5);
+  letter-spacing: -0.01em;
+}
+.rail-brand .rail-brand-sub {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: var(--s-2);
 }
 
-nav button,
-.toolbar button {
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.rail-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: var(--s-4) var(--s-2) var(--s-1);
+}
+.rail-group-label:first-child {
+  margin-top: 0;
+}
+
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
   font: inherit;
+  text-align: left;
+  padding: var(--s-2) var(--s-3);
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rail-link:hover {
+  background: var(--accent-tint);
+}
+.rail-link.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.rail-link .rail-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The content region: a centered column at a single unified width. */
+.app-content {
+  min-width: 0; /* let inner grids shrink instead of overflowing the column */
+}
+.app {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--s-7) var(--s-6) var(--s-8);
+}
+/* Reader + Calendar get a slightly wider bound within the same shell (the book
+   spread and the 7-col grid want room) — NOT a different page geometry. */
+.app.app-wide {
+  max-width: var(--content-wide);
+}
+
+/* Desktop-first, but don't crowd on smaller screens: below 900px the rail
+   narrows to an icon-only strip (labels + wordmark subtitle hidden, wordmark
+   shrinks) so the content column keeps its room. Below 620px it drops to a
+   horizontal top strip that scrolls. Page geometry is untouched throughout. */
+@media (max-width: 900px) {
+  :root {
+    --rail-w: 60px;
+  }
+  .rail {
+    padding: var(--s-4) var(--s-2);
+    align-items: center;
+  }
+  .rail-brand {
+    font-size: 0; /* hide the wordmark text, keep a monogram */
+    margin: 0 0 var(--s-4);
+  }
+  .rail-brand::before {
+    content: "DD";
+    font-size: 20px;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .rail-brand br,
+  .rail-brand-sub,
+  .rail-group-label,
+  .rail-link {
+    /* collapse the text label; the icon carries the meaning */
+  }
+  .rail-group-label {
+    display: none;
+  }
+  .rail-link {
+    justify-content: center;
+    gap: 0;
+    font-size: 0; /* hide label text; icon remains */
+    padding: var(--s-3);
+  }
+  .app {
+    padding: var(--s-5) var(--s-4) var(--s-7);
+  }
+}
+
+@media (max-width: 620px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .rail {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-1);
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-brand {
+    margin: 0 var(--s-3) 0 0;
+  }
+  .rail-nav {
+    flex-direction: row;
+  }
+}
+
+/* --- Page header: every tab opens the same way — a serif title, an optional
+   subhead/status, then a hairline rule, then the tab's own controls. --- */
+.page-header {
+  margin-bottom: var(--s-5);
+}
+.page-header h2,
+.page-title {
+  font-family: var(--font-serif);
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+.page-header .page-sub {
+  display: block;
+  color: var(--muted);
+  font-size: var(--t-small);
+  margin-top: var(--s-1);
+}
+.page-header .page-rule {
+  height: 1px;
+  background: var(--line);
+  margin: var(--s-3) 0 0;
+}
+/* A page-header may lead with a back button (concept detail); keep it tidy. */
+.page-header > .btn-ghost {
+  margin-bottom: var(--s-2);
+  padding-left: var(--s-2);
+}
+.concept-detail-title {
+  font-family: var(--font-serif);
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+}
+
+/* --- Button hierarchy: one base, three roles + danger. Answers "which is the
+   primary action" at a glance. --- */
+.btn,
+.toolbar button,
+.resource-actions button,
+.concept-new button,
+.concept-actions button,
+.entry-card-head .danger {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-sm);
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
-  padding: 6px 14px;
-  border-radius: 6px;
   cursor: pointer;
-  margin-left: 8px;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    box-shadow 0.12s ease, color 0.12s ease;
+}
+.btn:hover,
+.toolbar button:hover {
+  border-color: var(--accent);
+}
+.btn:disabled,
+.toolbar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-color: var(--line);
 }
 
-nav button.active {
+/* One visible keyboard-focus ring for every control — buttons, rail links,
+   the calendar day cells, the view toggle. Only on :focus-visible so a mouse
+   click doesn't leave a ring behind. */
+.btn:focus-visible,
+.toolbar button:focus-visible,
+.resource-actions button:focus-visible,
+.concept-new button:focus-visible,
+.concept-actions button:focus-visible,
+.rail-link:focus-visible,
+.concept-open:focus-visible,
+button.cal-cell:focus-visible,
+.overlay-viewtoggle button:focus-visible,
+.overlay-controls button:focus-visible,
+.drawer-close:focus-visible,
+.overlay-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 4px var(--accent);
+}
+/* On the dark overlay, tint the ring light so it stays visible over the dim. */
+.overlay-viewtoggle button:focus-visible,
+.overlay-controls button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
+/* Primary: the one leading action per surface (Finalize, Create, Restore). */
+.btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+/* Secondary: supporting actions (Prev/Next, Save, Rescan) — outlined accent. */
+.btn-secondary {
+  background: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--accent-tint);
+}
+
+/* Ghost: quiet chrome (close, drawer toggle, month nav). */
+.btn-ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-tint);
+  color: var(--ink);
+}
+
+/* Danger: soft-delete. */
+.btn-danger,
+.entry-card-head .danger,
+.resource-actions button.danger {
+  background: #fff;
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+}
+.btn-danger:hover:not(:disabled),
+.entry-card-head .danger:hover,
+.resource-actions button.danger:hover {
+  background: var(--danger-bg);
 }
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-4);
 }
 
 .toolbar .date {
   font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: var(--t-head);
 }
 
-.toolbar input[type="date"] {
-  font: inherit;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-
-.toolbar .topic-input {
-  font: inherit;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  width: 140px;
-}
-
+.toolbar input[type="date"],
+.toolbar .topic-input,
 .toolbar .day-jump {
   font: inherit;
-  padding: 6px 10px;
+  padding: var(--s-2) var(--s-3);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: #fff;
+}
+.toolbar .topic-input {
+  width: 140px;
+}
+.toolbar .day-jump {
   max-width: 260px;
   cursor: pointer;
+}
+.toolbar input:focus-visible,
+.toolbar select:focus-visible,
+.concept-keywords-input:focus-visible,
+.concept-page:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
 .status {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--t-small);
+}
+/* Status text that sits in a toolbar row should stay on one line at the end. */
+.toolbar .status {
+  margin-left: auto;
 }
 
 .prose {
@@ -121,31 +450,35 @@ nav button.active {
 
 .prose img {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   display: block;
-  margin: 12px 0;
+  margin: var(--s-3) 0;
 }
 
 .editor-pane .prose .ProseMirror {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px 18px;
+  border-radius: var(--r-md);
+  padding: var(--s-4) var(--s-5);
   background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.editor-pane .prose .ProseMirror:focus-within {
+  border-color: var(--accent);
 }
 
 .entry {
   border-bottom: 1px solid var(--line);
-  padding-bottom: 8px;
-  margin-bottom: 24px;
+  padding-bottom: var(--s-2);
+  margin-bottom: var(--s-5);
 }
 
 .entry-name {
-  font-size: 13px;
+  font-size: var(--t-small);
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin: 0 0 4px;
+  margin: 0 0 var(--s-1);
 }
 
 .empty {
@@ -154,15 +487,15 @@ nav button.active {
 
 /* --- Math helper (cheat sheet + live suggestion) --- */
 .math-helper {
-  margin-top: 16px;
+  margin-top: var(--s-4);
 }
 
 .math-live {
   border: 1px solid var(--accent);
-  background: #f1f5f2;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
+  background: var(--accent-tint);
+  border-radius: var(--r-md);
+  padding: var(--s-3);
+  margin-bottom: var(--s-3);
 }
 
 .math-live-label {
@@ -175,8 +508,8 @@ nav button.active {
 
 .math-live-src {
   display: inline-block;
-  margin: 4px 0;
-  font-size: 13px;
+  margin: var(--s-1) 0;
+  font-size: var(--t-small);
   color: var(--muted);
 }
 
@@ -185,31 +518,34 @@ nav button.active {
 }
 
 .math-live-err {
-  font-size: 13px;
+  font-size: var(--t-small);
   color: var(--muted);
 }
 
 .math-toggle {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--t-small);
   background: none;
   border: none;
   color: var(--accent);
   cursor: pointer;
-  padding: 4px 0;
+  padding: var(--s-1) 0;
+}
+.math-toggle:hover {
+  text-decoration: underline;
 }
 
 .math-cheat {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-  margin-top: 6px;
+  font-size: var(--t-small);
+  margin-top: var(--s-2);
 }
 
 .math-cheat th,
 .math-cheat td {
   text-align: left;
-  padding: 6px 10px;
+  padding: var(--s-2) var(--s-3);
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
@@ -223,8 +559,8 @@ nav button.active {
 .math-cheat code {
   background: #f3f1ea;
   padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-small);
 }
 
 .math-cheat-render {
@@ -241,20 +577,20 @@ nav button.active {
 .resource {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .resource.orphan {
-  background: #fdf4f0;
+  background: var(--danger-bg);
 }
 
 .resource-thumb {
   width: 56px;
   height: 56px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--line);
 }
 
@@ -265,7 +601,7 @@ nav button.active {
 
 .resource-name {
   display: block;
-  font-size: 13px;
+  font-size: var(--t-small);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -277,12 +613,7 @@ nav button.active {
 }
 
 .resource.orphan .resource-tag {
-  color: #b4562f;
-}
-
-.resource-actions button.danger {
-  color: #b4562f;
-  border-color: #e6c4b6;
+  color: var(--danger);
 }
 
 /* --- In-tab resource drawer: lives in the blank column to the RIGHT of the
@@ -300,13 +631,13 @@ nav button.active {
   position: absolute;
   top: 0;
   /* Sit just past the editor's right edge, out in the empty margin. */
-  left: calc(100% + 24px);
+  left: calc(100% + var(--s-5));
   width: 320px;
   max-height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding-left: 24px;
+  padding-left: var(--s-5);
   border-left: 1px solid var(--line);
   /* Slide + fade in from the right; no layout shift on the editor. */
   opacity: 0;
@@ -331,8 +662,8 @@ nav button.active {
     padding-left: 0;
     border-left: none;
     border-top: 1px solid var(--line);
-    margin-top: 20px;
-    padding-top: 12px;
+    margin-top: var(--s-5);
+    padding-top: var(--s-3);
     max-height: none;
     /* Collapse height when closed for the below-editor layout. */
     display: none;
@@ -348,8 +679,13 @@ nav button.active {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 10px;
-  margin-bottom: 8px;
+  padding-bottom: var(--s-3);
+  margin-bottom: var(--s-2);
+}
+.drawer-head strong {
+  font-family: var(--font-serif);
+  font-size: var(--t-head);
+  font-weight: 600;
 }
 
 .drawer-close {
@@ -360,7 +696,12 @@ nav button.active {
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
-  padding: 4px;
+  padding: var(--s-1);
+  border-radius: var(--r-sm);
+}
+.drawer-close:hover {
+  color: var(--ink);
+  background: var(--accent-tint);
 }
 
 /* Inside the drawer, stack thumbnail + actions vertically to fit the width. */
@@ -370,15 +711,14 @@ nav button.active {
 
 .drawer .resource-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--s-2);
   flex-basis: 100%;
-  margin-top: 6px;
+  margin-top: var(--s-2);
 }
 
 .drawer .resource-actions button {
-  margin-left: 0;
-  font-size: 13px;
-  padding: 4px 10px;
+  font-size: var(--t-small);
+  padding: var(--s-1) var(--s-3);
 }
 
 /* --- Read view: paginated book with a 3D page-flip ---
@@ -654,36 +994,30 @@ nav button.active {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  margin: 4px 0 20px;
+  gap: var(--s-5);
+  margin: 0 0 var(--s-5);
 }
 .cal-title {
-  font-size: 24px;
+  font-family: var(--font-serif);
+  font-size: var(--t-title);
   font-weight: 600;
   margin: 0;
   min-width: 220px;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 .cal-nav {
-  font: inherit;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink);
-  border-radius: 8px;
   width: 40px;
   height: 40px;
-  cursor: pointer;
-}
-.cal-nav:hover {
-  background: var(--bg);
+  padding: 0;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  gap: var(--s-2);
 }
 
 .cal-weekday {
@@ -692,7 +1026,7 @@ nav button.active {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  padding-bottom: 4px;
+  padding-bottom: var(--s-1);
 }
 
 /* Big square-ish day cells. */
@@ -701,9 +1035,9 @@ nav button.active {
   aspect-ratio: 1 / 1;
   min-height: 96px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #fff;
-  padding: 8px;
+  padding: var(--s-2);
   font: inherit;
   text-align: left;
   color: var(--ink);
@@ -712,11 +1046,12 @@ nav button.active {
 /* Cells with entries are buttons — make them feel clickable. */
 button.cal-cell {
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease,
+    border-color 0.1s ease;
 }
 button.cal-cell:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   border-color: var(--accent);
 }
 .cal-out {
@@ -730,7 +1065,7 @@ button.cal-cell:hover {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 .cal-daynum {
-  font-size: 13px;
+  font-size: var(--t-small);
   font-weight: 600;
   color: var(--muted);
 }
@@ -778,8 +1113,8 @@ button.cal-cell:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 18, 14, 0.55);
-  backdrop-filter: blur(2px);
+  background: var(--overlay-dim);
+  backdrop-filter: blur(3px);
   animation: overlay-in 0.18s ease;
 }
 @keyframes overlay-in {
@@ -795,15 +1130,18 @@ button.cal-cell:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: var(--s-4);
 }
 .overlay-close {
   position: absolute;
-  top: -14px;
-  right: -14px;
+  top: -18px;
+  right: -18px;
   z-index: 2;
-  width: 34px;
-  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: none;
   background: #fff;
@@ -811,7 +1149,10 @@ button.cal-cell:hover {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
+}
+.overlay-close:hover {
+  background: var(--paper-2);
 }
 .overlay-book {
   margin: 0;
@@ -819,7 +1160,7 @@ button.cal-cell:hover {
 .overlay-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--s-4);
   color: #fff;
 }
 .overlay-controls .status {
@@ -832,9 +1173,13 @@ button.cal-cell:hover {
   border: 1px solid rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-sm);
   cursor: pointer;
+  transition: background 0.12s ease;
+}
+.overlay-controls button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
 }
 .overlay-controls button:disabled {
   opacity: 0.4;
@@ -845,10 +1190,12 @@ button.cal-cell:hover {
 .overlay-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--s-4);
   color: #f3efe6;
 }
 .overlay-head > strong {
+  font-family: var(--font-serif);
+  font-size: var(--t-head);
   font-weight: 600;
 }
 .overlay-head .status {
@@ -880,7 +1227,7 @@ button.cal-cell:hover {
 }
 .overlay-byentry {
   display: flex;
-  gap: 18px;
+  gap: var(--s-4);
   align-items: stretch;
   width: 100%;
   height: 78vh;
@@ -905,8 +1252,8 @@ button.cal-cell:hover {
 .entry-card {
   background: var(--paper);
   border: 1px solid var(--paper-edge);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 /* Center the entry-mode Prev/Next controls under the stage. */
@@ -918,47 +1265,40 @@ button.cal-cell:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: var(--s-2) var(--s-4);
   border-bottom: 1px solid var(--paper-edge);
-  background: #faf6ee;
+  background: var(--paper-2);
 }
 .entry-card-head code {
-  font-size: 13px;
+  font-size: var(--t-small);
   color: var(--muted);
 }
 .entry-meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-2);
   margin-right: auto; /* keep Delete pinned right */
-  margin-left: 12px;
+  margin-left: var(--s-3);
   font-size: 12px;
 }
 .entry-topic {
-  padding: 2px 8px;
+  padding: 2px var(--s-2);
   border-radius: 999px;
-  background: #eef2e6;
-  color: #4a5a2f;
+  background: var(--topic-bg);
+  color: var(--topic-fg);
   font-weight: 600;
 }
 .sentiment-chip {
-  padding: 2px 8px;
+  padding: 2px var(--s-2);
   border-radius: 999px;
   background: #f3ede1;
   color: var(--muted);
   white-space: nowrap;
 }
-.entry-card-head .danger {
-  font: inherit;
-  padding: 4px 12px;
-  border-radius: 6px;
-  background: #fff;
-  color: #b4562f;
-  border: 1px solid #e6c4b6;
-  cursor: pointer;
-}
+/* .entry-card-head .danger inherits the shared .btn base + .btn-danger colors
+   (both include this selector) — no separate declaration needed. */
 .entry-card-body {
-  padding: 14px 20px;
+  padding: var(--s-4) var(--s-5);
 }
 /* The entry flow inside a card shows in full (no pagination clipping here). */
 .entry-card-body .day-flow .ProseMirror {
@@ -998,23 +1338,23 @@ button.cal-cell:hover {
 
 /* --- Tore (bin) tab: recoverable entries + images --- */
 .bin-group {
-  margin-top: 18px;
+  margin-top: var(--s-5);
 }
 .bin-group h3 {
-  margin: 0 0 6px;
-  font-size: 14px;
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-small);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.bin-pane .resource-actions button {
-  font: inherit;
-  padding: 5px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: #fff;
+/* Preview reads as supporting (secondary); Restore is primary via .btn-primary,
+   so scope this to buttons that AREN'T primary so the fill still wins. */
+.bin-pane .resource-actions button:not(.btn-primary) {
+  border-color: var(--accent);
   color: var(--accent);
-  cursor: pointer;
+}
+.bin-pane .resource-actions button:not(.btn-primary):hover:not(:disabled) {
+  background: var(--accent-tint);
 }
 
 /* A deleted-entry row stacks: [meta | actions] on top, expandable preview below. */
@@ -1024,14 +1364,14 @@ button.cal-cell:hover {
 .bin-entry-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s-3);
 }
 .bin-preview {
-  margin-top: 10px;
-  padding: 14px 18px;
+  margin-top: var(--s-3);
+  padding: var(--s-4) var(--s-5);
   background: var(--paper);
   border: 1px solid var(--paper-edge);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   max-height: 340px;
   overflow-y: auto;
 }
@@ -1043,51 +1383,52 @@ button.cal-cell:hover {
 /* --- Concepts tab: the tagging layer (list + detail, reuses .bin-* / .resource-*) --- */
 .concept-new {
   display: flex;
-  gap: 8px;
+  gap: var(--s-2);
   flex-wrap: wrap;
-  margin: 8px 0 16px;
+  margin: var(--s-2) 0 var(--s-4);
 }
 .concept-new .topic-input,
 .concept-keywords-input {
   font: inherit;
-  padding: 6px 10px;
+  padding: var(--s-2) var(--s-3);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: #fff;
 }
 .concept-keywords-input {
   flex: 1;
   min-width: 200px;
 }
-.concept-new button,
-.concept-actions button {
-  font: inherit;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: #fff;
+/* Rescan reads as supporting (secondary); Create + Save are primary via JSX, so
+   scope this to non-primary buttons so the accent fill still wins. */
+.concept-new button:not(.btn-primary),
+.concept-actions button:not(.btn-primary) {
+  border-color: var(--accent);
   color: var(--accent);
-  cursor: pointer;
+}
+.concept-new button:not(.btn-primary):hover:not(:disabled),
+.concept-actions button:not(.btn-primary):hover:not(:disabled) {
+  background: var(--accent-tint);
 }
 
 /* List rows: a full-width clickable button carrying name + count + keyword chips. */
 .concept-open {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s-3);
   flex-wrap: wrap;
   width: 100%;
   font: inherit;
   text-align: left;
-  padding: 10px 12px;
+  padding: var(--s-3);
   border: none;
   background: none;
   cursor: pointer;
   color: inherit;
+  border-radius: var(--r-sm);
 }
 .concept-open:hover {
-  background: var(--line);
-  border-radius: 6px;
+  background: var(--accent-tint);
 }
 .concept-name {
   font-weight: 600;
@@ -1098,7 +1439,7 @@ button.cal-cell:hover {
 }
 .concept-chips {
   display: inline-flex;
-  gap: 6px;
+  gap: var(--s-2);
   flex-wrap: wrap;
 }
 .concept-chip {
@@ -1106,7 +1447,7 @@ button.cal-cell:hover {
   color: var(--muted);
   background: var(--line);
   border-radius: 10px;
-  padding: 1px 8px;
+  padding: 1px var(--s-2);
 }
 
 /* Detail editor: keywords + page notes stacked. */
@@ -1142,7 +1483,7 @@ button.cal-cell:hover {
 
 /* A linked entry that's currently soft-deleted still shows — just flagged. */
 .concept-tore-tag {
-  color: #b3542f;
+  color: var(--danger);
   font-weight: 600;
 }
 

@@ -373,6 +373,12 @@ export default function Reader({ active = true, dataVersion = 0 }) {
 
   return (
     <div className="reader-pane">
+      <div className="page-header">
+        <h2>Read</h2>
+        <span className="page-sub">Your diary as a book</span>
+        <div className="page-rule" />
+      </div>
+
       <div className="toolbar">
         {/* Jump to a day. A native date calendar can't show WHICH days have
             entries, so this lists only real diary days, each with its count. */}
@@ -390,10 +396,18 @@ export default function Reader({ active = true, dataVersion = 0 }) {
             </option>
           ))}
         </select>
-        <button onClick={() => navigate("back")} disabled={atStart || !!flip}>
+        <button
+          className="btn-secondary"
+          onClick={() => navigate("back")}
+          disabled={atStart || !!flip}
+        >
           ◂ Prev
         </button>
-        <button onClick={() => navigate("fwd")} disabled={atEnd || !!flip}>
+        <button
+          className="btn-secondary"
+          onClick={() => navigate("fwd")}
+          disabled={atEnd || !!flip}
+        >
           Next ▸
         </button>
         <span className="status">

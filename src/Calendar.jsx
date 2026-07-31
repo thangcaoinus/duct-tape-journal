@@ -54,9 +54,15 @@ export default function Calendar({ onChanged }) {
 
   return (
     <div className="calendar-pane">
+      <div className="page-header">
+        <h2>Calendar</h2>
+        <span className="page-sub">Click a day with entries to read it</span>
+        <div className="page-rule" />
+      </div>
+
       <div className="calendar-head">
         <button
-          className="cal-nav"
+          className="cal-nav btn-ghost"
           onClick={() => setYm((m) => shiftMonth(m, -1))}
           aria-label="Previous month"
         >
@@ -64,7 +70,7 @@ export default function Calendar({ onChanged }) {
         </button>
         <h2 className="cal-title">{monthLabel(ym)}</h2>
         <button
-          className="cal-nav"
+          className="cal-nav btn-ghost"
           onClick={() => setYm((m) => shiftMonth(m, 1))}
           aria-label="Next month"
         >

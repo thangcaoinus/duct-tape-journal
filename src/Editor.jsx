@@ -201,8 +201,13 @@ export default function Editor({ onFinalized }) {
 
   return (
     <div className="editor-pane">
+      <div className="page-header">
+        <h2>Today</h2>
+        <span className="page-sub">{date} · autosaves as you write</span>
+        <div className="page-rule" />
+      </div>
+
       <div className="toolbar">
-        <span className="date">{date}</span>
         <input
           className="topic-input"
           type="text"
@@ -217,9 +222,11 @@ export default function Editor({ onFinalized }) {
             <option key={t} value={t} />
           ))}
         </datalist>
-        <button onClick={onFinalize}>Finalize</button>
+        <button className="btn-primary" onClick={onFinalize}>
+          Finalize
+        </button>
         <button
-          className="drawer-toggle"
+          className="drawer-toggle btn-ghost"
           onClick={toggleDrawer}
           aria-expanded={drawerOpen}
         >

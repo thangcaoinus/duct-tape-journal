@@ -38,13 +38,17 @@ export default function Bin({ onChanged }) {
 
   return (
     <div className="bin-pane">
-      <div className="toolbar">
-        <span className="status">
+      <div className="page-header">
+        <h2>Tore</h2>
+        <span className="page-sub">
           {items === null
             ? "loading…"
-            : `${items.length} recoverable item${items.length === 1 ? "" : "s"}`}
+            : `${items.length} recoverable item${
+                items.length === 1 ? "" : "s"
+              } · restores to its original place`}
+          {note ? ` · ${note}` : ""}
         </span>
-        <span className="status">{note}</span>
+        <div className="page-rule" />
       </div>
 
       {items !== null && items.length === 0 ? (
@@ -82,7 +86,12 @@ export default function Bin({ onChanged }) {
                       </span>
                     </div>
                     <div className="resource-actions">
-                      <button onClick={() => onRestore(it)}>Restore</button>
+                      <button
+                        className="btn-primary"
+                        onClick={() => onRestore(it)}
+                      >
+                        Restore
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -120,7 +129,9 @@ function BinEntry({ item, onRestore, fmtWhen }) {
         </div>
         <div className="resource-actions">
           <button onClick={togglePreview}>{open ? "Hide" : "Preview"}</button>
-          <button onClick={() => onRestore(item)}>Restore</button>
+          <button className="btn-primary" onClick={() => onRestore(item)}>
+            Restore
+          </button>
         </div>
       </div>
       {open && (

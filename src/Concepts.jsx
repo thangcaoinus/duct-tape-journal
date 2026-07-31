@@ -89,13 +89,17 @@ function ConceptList({ concepts, onOpen, onCreated }) {
 
   return (
     <div className="bin-pane">
-      <div className="toolbar">
-        <span className="status">
+      <div className="page-header">
+        <h2>Concepts</h2>
+        <span className="page-sub">
           {concepts === null
             ? "loading…"
-            : `${concepts.length} concept${concepts.length === 1 ? "" : "s"}`}
+            : `${concepts.length} concept${
+                concepts.length === 1 ? "" : "s"
+              } gathering your entries`}
+          {note ? ` · ${note}` : ""}
         </span>
-        <span className="status">{note}</span>
+        <div className="page-rule" />
       </div>
 
       <form className="concept-new" onSubmit={onCreate}>
@@ -115,7 +119,9 @@ function ConceptList({ concepts, onOpen, onCreated }) {
           onChange={(e) => setKeywords(e.target.value)}
           aria-label="Alias keywords"
         />
-        <button type="submit">Create</button>
+        <button type="submit" className="btn-primary">
+          Create
+        </button>
       </form>
 
       {concepts !== null && concepts.length === 0 ? (
@@ -201,7 +207,9 @@ function ConceptDetail({ slug, onBack }) {
     return (
       <div className="bin-pane">
         <div className="toolbar">
-          <button onClick={onBack}>‹ Concepts</button>
+          <button className="btn-ghost" onClick={onBack}>
+            ‹ Concepts
+          </button>
           <span className="status">loading…</span>
         </div>
       </div>
@@ -211,12 +219,16 @@ function ConceptDetail({ slug, onBack }) {
   const links = concept.links || [];
   return (
     <div className="bin-pane">
-      <div className="toolbar">
-        <button onClick={onBack}>‹ Concepts</button>
-        <span className="status">
-          #{concept.name} · {links.length} entr{links.length === 1 ? "y" : "ies"}
+      <div className="page-header">
+        <button className="btn-ghost" onClick={onBack}>
+          ‹ Concepts
+        </button>
+        <h2 className="concept-detail-title">#{concept.name}</h2>
+        <span className="page-sub">
+          {links.length} entr{links.length === 1 ? "y" : "ies"} linked
+          {note ? ` · ${note}` : ""}
         </span>
-        <span className="status">{note}</span>
+        <div className="page-rule" />
       </div>
 
       <section className="concept-edit">
@@ -241,7 +253,9 @@ function ConceptDetail({ slug, onBack }) {
           />
         </label>
         <div className="concept-actions">
-          <button onClick={onSave}>Save</button>
+          <button className="btn-primary" onClick={onSave}>
+            Save
+          </button>
           <button onClick={onRescan}>Rescan archive</button>
         </div>
       </section>
