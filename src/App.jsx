@@ -4,6 +4,7 @@ import Reader from "./Reader.jsx";
 import Calendar from "./Calendar.jsx";
 import Concepts from "./Concepts.jsx";
 import Bin from "./Bin.jsx";
+import Tools from "./Tools.jsx";
 import { onOpenConcept } from "./lib/concepts.jsx";
 
 // A small, single-stroke icon set for the rail. Drawn inline (not emoji/glyphs)
@@ -37,6 +38,12 @@ const Icon = {
     <>
       <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
       <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+    </>
+  ),
+  tools: (
+    <>
+      <path d="M4 20h6M4 20v-3M14 20h6M17 20v-9" />
+      <path d="M7 17V6M4 8.5h6M14 11h6M17 11V6" />
     </>
   ),
 };
@@ -125,6 +132,9 @@ export default function App() {
 
           <span className="rail-group-label">Recover</span>
           <RailLink id="bin" mode={mode} onGo={go} icon="tore" label="Tore" />
+
+          <span className="rail-group-label">Tools</span>
+          <RailLink id="tools" mode={mode} onGo={go} icon="tools" label="Tools" />
         </div>
       </nav>
 
@@ -149,6 +159,7 @@ export default function App() {
                   Read pagination, so it needs no dataVersion wiring. */}
               {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
               {mode === "bin" && <Bin onChanged={bumpData} />}
+              {mode === "tools" && <Tools onChanged={bumpData} />}
             </div>
           )}
 

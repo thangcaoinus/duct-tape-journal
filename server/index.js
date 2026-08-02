@@ -3,7 +3,6 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import vader from "vader-sentiment";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -70,13 +69,41 @@ function serializeFrontmatter(meta, body) {
   return `---\n${block}\n---\n\n${body}`;
 }
 
-// Offline sentiment (vader-sentiment): compound in -1..+1, stored as an integer
-// -100..100 so entries of different lengths compare fairly. A fun heuristic.
-function scoreSentiment(text) {
-  if (!text || !text.trim()) return 0;
-  const { compound } =
-    vader.SentimentIntensityAnalyzer.polarity_scores(text);
-  return Math.round(compound * 100);
+// Offline neural sentiment (Transformers.js / DistilBERT-SST-2). Lexicon scorers
+// (VADER) can't read framing — a negative mulling full of hopeful words scored
+// positive, and vice-versa — so we score with a real model. The model is fetched
+// once from the hub then cached on disk; after that it runs fully offline. If it
+// can't load (offline AND uncached), the feature degrades gracefully: the scorer
+// returns null and the sentiment key is simply omitted (never crashes finalize).
+let _sentimentPipe = null; // resolved pipeline, or null when unavailable
+let _sentimentTried = false; // have we attempted a load this process?
+async function getSentimentPipe() {
+  if (_sentimentTried) return _sentimentPipe;
+  _sentimentTried = true;
+  try {
+    const { pipeline } = await import("@huggingface/transformers");
+    _sentimentPipe = await pipeline(
+      "sentiment-analysis",
+      "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+    );
+  } catch (e) {
+    console.warn("sentiment model unavailable (offline?):", e.message);
+    _sentimentPipe = null; // graceful: feature disabled for this process
+  }
+  return _sentimentPipe;
+}
+
+// Score body text to an integer -100..100 (same wire contract as before), or
+// null when the model is unavailable so callers can omit the frontmatter key.
+async function scoreSentiment(text) {
+  if (!text || !text.trim()) return null;
+  const pipe = await getSentimentPipe();
+  if (!pipe) return null; // offline / model missing
+  // DistilBERT-SST-2 caps at 512 tokens; truncate defensively (~1800 chars).
+  const input = text.length > 1800 ? text.slice(0, 1800) : text;
+  const [out] = await pipe(input); // {label:'POSITIVE'|'NEGATIVE', score:0..1}
+  const signed = out.label === "NEGATIVE" ? -out.score : out.score;
+  return Math.round(signed * 100);
 }
 
 // A topic is a single lowercase word (one continuous \w+), like an email subject.
@@ -381,7 +408,9 @@ app.post("/api/finalize/:date", guardDate, async (req, res) => {
   } catch {
     /* no topic sidecar */
   }
-  const meta = { sentiment: scoreSentiment(md) };
+  const meta = {};
+  const s = await scoreSentiment(md);
+  if (s !== null) meta.sentiment = s; // omit when offline — entry still finalizes
   if (topic) meta.topic = topic;
 
   // Body on disk is already in disk-path form; prepend frontmatter and write.
@@ -444,6 +473,80 @@ app.get("/api/days", async (req, res) => {
   }
   days.sort((a, b) => a.date.localeCompare(b.date));
   res.json({ ok: true, days });
+});
+
+// --- Sentiment: is the neural model available this process? (UI gating) ---
+app.get("/api/sentiment/status", async (req, res) => {
+  const pipe = await getSentimentPipe();
+  res.json({ ok: true, available: !!pipe });
+});
+
+// Walk the whole archive scoring finalized entries. `force=false` (backfill)
+// only ADDS a missing `sentiment` — the one narrow exception to "stamped once at
+// finalize": it fills a gap, never re-scores an entry that already has one.
+// `force=true` (rescore) re-scores EVERY entry, overwriting existing sentiments
+// (used to replace old lexicon scores with the neural model — a deliberate,
+// user-triggered bulk restamp). Both only ever touch the `sentiment` key: prose
+// and every other frontmatter key are preserved (re-serialising {meta, body}).
+// Best-effort per file — a single bad file never aborts the batch.
+async function scoreArchive(force) {
+  let dirs = [];
+  try {
+    dirs = await fs.readdir(DIARY, { withFileTypes: true });
+  } catch {
+    return { scored: 0, alreadyScored: 0, skipped: 0 };
+  }
+  let scored = 0;
+  let alreadyScored = 0;
+  let skipped = 0;
+  for (const d of dirs) {
+    if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
+    let inner = [];
+    try {
+      inner = await fs.readdir(path.join(DIARY, d.name));
+    } catch {
+      continue;
+    }
+    for (const name of inner) {
+      if (!/^entry-\d+\.md$/.test(name)) continue;
+      const file = path.join(DIARY, d.name, name);
+      try {
+        const raw = await fs.readFile(file, "utf8");
+        const { meta, body } = parseFrontmatter(raw);
+        if (!force && meta.sentiment !== undefined) {
+          alreadyScored++;
+          continue; // backfill: never re-score an entry that already has one
+        }
+        const s = await scoreSentiment(body);
+        if (s === null) {
+          skipped++;
+          continue;
+        }
+        meta.sentiment = s;
+        await fs.writeFile(file, serializeFrontmatter(meta, body), "utf8");
+        scored++;
+      } catch (e) {
+        console.error("score archive failed for", file, e.message);
+        skipped++;
+      }
+    }
+  }
+  return { scored, alreadyScored, skipped };
+}
+
+// --- Sentiment backfill: score only entries with no `sentiment` yet. ---
+app.post("/api/sentiment/backfill", async (req, res) => {
+  const pipe = await getSentimentPipe();
+  if (!pipe) return res.json({ ok: false, offline: true });
+  res.json({ ok: true, ...(await scoreArchive(false)) });
+});
+
+// --- Sentiment rescore: re-score EVERY finalized entry, overwriting existing
+// sentiments (e.g. to replace old lexicon scores). Deliberate bulk restamp. ---
+app.post("/api/sentiment/rescore", async (req, res) => {
+  const pipe = await getSentimentPipe();
+  if (!pipe) return res.json({ ok: false, offline: true });
+  res.json({ ok: true, ...(await scoreArchive(true)) });
 });
 
 // --- Resource: save a pasted/dropped image, return its served URL ---

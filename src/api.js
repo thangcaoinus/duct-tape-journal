@@ -147,6 +147,27 @@ export async function loadConceptEntry(slug, date, name) {
   return body.markdown ?? "";
 }
 
+// --- Sentiment ---
+
+// Whether the neural sentiment model loaded (offline+uncached => false). Lets the
+// Tools tab disable its button and explain, rather than fail on click.
+export async function sentimentStatus() {
+  const { body } = await json(await fetch(`/api/sentiment/status`));
+  return !!body.available;
+}
+
+// Score every finalized entry that has no sentiment yet. Returns {status, body}
+// with body {ok, scored, alreadyScored, skipped} or {ok:false, offline:true}.
+export async function backfillSentiment() {
+  return json(await fetch(`/api/sentiment/backfill`, { method: "POST" }));
+}
+
+// Re-score EVERY finalized entry, overwriting existing sentiments (bulk restamp,
+// e.g. to replace old lexicon scores). Same response shape as backfill.
+export async function rescoreSentiment() {
+  return json(await fetch(`/api/sentiment/rescore`, { method: "POST" }));
+}
+
 export async function loadResources(date) {
   const { body } = await json(await fetch(`/api/resources/${date}`));
   return body.resources ?? [];

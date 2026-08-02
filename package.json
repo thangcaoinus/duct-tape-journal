@@ -11,6 +11,7 @@
     "start:host": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev:host\""
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@tiptap/extension-image": "^2.6.6",
     "@tiptap/extension-mathematics": "^2.6.6",
     "@tiptap/pm": "^2.6.6",
@@ -21,8 +22,7 @@
     "pm2": "^7.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tiptap-markdown": "^0.8.10",
-    "vader-sentiment": "^1.1.3"
+    "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.4",
