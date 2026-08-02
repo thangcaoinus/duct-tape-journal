@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --open",
+    "dev:host": "vite --host 0.0.0.0",
     "server": "node server/index.js",
-    "start": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev\""
+    "start": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev\"",
+    "start:host": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev:host\""
   },
   "dependencies": {
     "@tiptap/extension-image": "^2.6.6",

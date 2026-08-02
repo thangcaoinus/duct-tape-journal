@@ -66,6 +66,10 @@ export default function App() {
   const [dataVersion, setDataVersion] = useState(0);
   const bumpData = () => setDataVersion((v) => v + 1);
 
+  // The Write pane widens while the editor's resource drawer is open so the
+  // drawer sits beside the editor in-flow (Editor owns the toggle; it reports up).
+  const [writeOpen, setWriteOpen] = useState(false);
+
   // Clicking a highlighted concept word (in any read view) jumps to that concept's
   // page. `conceptTarget` bumps a nonce so re-clicking the SAME slug re-opens it
   // even if we're already on the Concepts tab.
@@ -89,14 +93,15 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <nav className="rail" aria-label="Primary">
-        <div className="rail-brand">
-          Duct-Tape
-          <br />
-          Diary
-          <span className="rail-brand-sub">a local diary</span>
-        </div>
+      {/* App masthead: the wordmark spans the whole app, above the rail + content.
+          Keeps the serif identity in one fixed place instead of crammed into the
+          nav rail — the rail below is now pure navigation. */}
+      <header className="masthead">
+        <span className="masthead-brand">Duct-Tape Diary</span>
+        <span className="masthead-sub">a local diary</span>
+      </header>
 
+      <nav className="rail" aria-label="Primary">
         <div className="rail-nav">
           <span className="rail-group-label">Write</span>
           <RailLink id="write" mode={mode} onGo={go} icon="write" label="Write" />
@@ -124,13 +129,28 @@ export default function App() {
       </nav>
 
       <div className="app-content">
-        <main className={`app ${wide ? "app-wide" : ""}`}>
-          {mode === "write" && <Editor onFinalized={bumpData} />}
-          {mode === "calendar" && <Calendar onChanged={bumpData} />}
-          {/* Concepts is self-contained — it links entries but doesn't affect Read
-              pagination, so it needs no dataVersion wiring. */}
-          {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
-          {mode === "bin" && <Bin onChanged={bumpData} />}
+        <main
+          className={`app ${wide ? "app-wide" : ""} ${
+            mode === "write" && writeOpen ? "write-open" : ""
+          }`}
+        >
+          {/* The one authored motion moment: switching tabs settles the fresh
+              page up+in, like turning to a new leaf. Keyed on `mode` so React
+              remounts it each switch and the CSS animation replays. The Reader is
+              excluded (kept mounted; it has its own page-flip motion). Honors
+              prefers-reduced-motion in CSS. */}
+          {mode !== "read" && (
+            <div className="page-turn" key={mode}>
+              {mode === "write" && (
+                <Editor onFinalized={bumpData} onDrawerToggle={setWriteOpen} />
+              )}
+              {mode === "calendar" && <Calendar onChanged={bumpData} />}
+              {/* Concepts is self-contained — it links entries but doesn't affect
+                  Read pagination, so it needs no dataVersion wiring. */}
+              {mode === "concepts" && <Concepts openTarget={conceptTarget} />}
+              {mode === "bin" && <Bin onChanged={bumpData} />}
+            </div>
+          )}
 
           {/* Reader stays mounted once opened; hidden off-screen when inactive so
               it keeps its loaded/measured state and never re-runs the measure pass

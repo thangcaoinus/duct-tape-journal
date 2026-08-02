@@ -185,6 +185,8 @@ export default function DayOverlay({ date, onClose, onChanged }) {
 
         {view === "flow" ? (
           <>
+            {/* .book-scaler shrinks the flow page to fit a phone (visual only). */}
+            <div className="book-scaler book-scaler--single">
             <div className="book single overlay-book">
               {entries && cur ? (
                 <div
@@ -199,6 +201,7 @@ export default function DayOverlay({ date, onClose, onChanged }) {
                   </div>
                 </div>
               )}
+            </div>
             </div>
 
             <div className="overlay-controls">

@@ -419,22 +419,26 @@ export default function Reader({ active = true, dataVersion = 0 }) {
 
       {total === 0 ? (
         <p className="empty">No finalized entries yet.</p>
-      ) : spread ? (
-        <Spread
-          pages={pages}
-          leftIndex={leftIndex}
-          flip={flip}
-          flipDur={flipDur}
-          entriesFor={(d) => entriesCache.current.get(d)}
-        />
       ) : (
-        <Single
-          pages={pages}
-          index={pageIndex}
-          flip={flip}
-          flipDur={flipDur}
-          entriesFor={(d) => entriesCache.current.get(d)}
-        />
+        <div className="reader-stage">
+          {spread ? (
+            <Spread
+              pages={pages}
+              leftIndex={leftIndex}
+              flip={flip}
+              flipDur={flipDur}
+              entriesFor={(d) => entriesCache.current.get(d)}
+            />
+          ) : (
+            <Single
+              pages={pages}
+              index={pageIndex}
+              flip={flip}
+              flipDur={flipDur}
+              entriesFor={(d) => entriesCache.current.get(d)}
+            />
+          )}
+        </div>
       )}
       {/* Reader flows across many days, so each day's first page shows a date
           "chapter" header — see `showDateHead` threaded into <Page> below. */}
@@ -471,6 +475,9 @@ function Spread({ pages, leftIndex, flip, flipDur, entriesFor }) {
   const bookStyle = flipDur ? { "--flip-ms": `${flipDur}ms` } : undefined;
 
   return (
+    // .book-scaler lets a phone shrink the whole spread to fit the viewport
+    // (visual transform only — page geometry is untouched). No-op on desktop.
+    <div className="book-scaler">
     <div className={`book ${flip ? "flipping" : ""}`} style={bookStyle}>
       {/* Static underlay: what will be revealed under the turning leaf. */}
       <div className="book-side left">
@@ -515,6 +522,7 @@ function Spread({ pages, leftIndex, flip, flipDur, entriesFor }) {
         </div>
       )}
     </div>
+    </div>
   );
 }
 
@@ -523,6 +531,7 @@ function Single({ pages, index, flip, flipDur, entriesFor }) {
   const cur = pages[index];
   const bookStyle = flipDur ? { "--flip-ms": `${flipDur}ms` } : undefined;
   return (
+    <div className="book-scaler book-scaler--single">
     <div className="book single" style={bookStyle}>
       {/* key includes flip.seq so each riffle turn replays the shuffle animation. */}
       <div
@@ -531,6 +540,7 @@ function Single({ pages, index, flip, flipDur, entriesFor }) {
       >
         <Page page={cur} entriesFor={entriesFor} showDateHead />
       </div>
+    </div>
     </div>
   );
 }

@@ -33,7 +33,7 @@ function mathAtCursor(text, offset) {
   return text.slice(before + 1, after);
 }
 
-export default function Editor({ onFinalized }) {
+export default function Editor({ onFinalized, onDrawerToggle }) {
   const date = today();
   const editorRef = useRef(null);
   const saveTimer = useRef(null);
@@ -45,6 +45,13 @@ export default function Editor({ onFinalized }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Bump on open so the drawer reloads (e.g. an image pasted since last time).
   const [drawerKey, setDrawerKey] = useState(0);
+
+  // Tell the app shell whether the drawer is open so the Write pane can widen to
+  // fit the side panel; clear it when the editor unmounts (tab switch).
+  useEffect(() => {
+    onDrawerToggle?.(drawerOpen);
+    return () => onDrawerToggle?.(false);
+  }, [drawerOpen, onDrawerToggle]);
 
   // Insert an existing resource straight into the editor at the cursor.
   function insertResource(r) {
