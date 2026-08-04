@@ -1275,11 +1275,13 @@ button.cal-cell:focus-visible,
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Italic serif dateline, natural case — NOT small-caps, which shrinks the
+     digits (30, 2026) out of proportion with the words beside them. */
   font-family: var(--font-serif);
-  font-size: 13px;
-  font-variant: small-caps;
+  font-size: 15px;
+  font-style: italic;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
   color: var(--muted);
   border-bottom: 1px solid var(--book-paper-edge);
   padding-bottom: 4px;
