@@ -795,6 +795,65 @@ app.get("/api/topics", async (req, res) => {
   res.json({ ok: true, topics: await readTopics() });
 });
 
+// --- Gather entries by exact topic (the Gather tab's Topics view). Unlike a
+// concept (a body grep), a topic is the entry's `topic:` frontmatter word, so the
+// predicate is an EXACT normTopic equality on meta.topic — never entryMatches.
+// Derived fresh from the same archive walk; no stored topic->entry index. ---
+app.get("/api/topics/:topic/entries", async (req, res) => {
+  const target = normTopic(req.params.topic);
+  const out = [];
+  if (target) {
+    let dirs = [];
+    try {
+      dirs = await fs.readdir(DIARY, { withFileTypes: true });
+    } catch {
+      dirs = [];
+    }
+    for (const d of dirs) {
+      if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
+      let inner = [];
+      try {
+        inner = await fs.readdir(path.join(DIARY, d.name));
+      } catch {
+        continue;
+      }
+      for (const name of inner) {
+        if (!/^entry-\d+\.md$/.test(name)) continue;
+        try {
+          const raw = await fs.readFile(path.join(DIARY, d.name, name), "utf8");
+          const { meta } = parseFrontmatter(raw);
+          if (normTopic(meta.topic) === target) {
+            out.push({ date: d.name, entry: name, matched: target });
+          }
+        } catch {
+          continue; // unreadable entry — skip, never abort the walk
+        }
+      }
+    }
+    out.sort((a, b) => (a.date + a.entry).localeCompare(b.date + b.entry));
+  }
+  res.json({ ok: true, topic: target, entries: out });
+});
+
+// --- A finalized entry's markdown body for preview (frontmatter stripped, wire
+// paths) — slug-independent, used by the Topics view. Mirrors the concept-scoped
+// preview route but reads only live entries (a frontmatter topic never points at
+// a tore'd entry the way a permanent concept link can). ---
+app.get("/api/entry/:date/:name", guardDate, async (req, res) => {
+  const { date } = req.params;
+  const name = path.basename(req.params.name);
+  if (!/^entry-\d+\.md$/.test(name)) {
+    return res.status(400).json({ ok: false, error: "bad entry name" });
+  }
+  const blob = path.join(DIARY, date, name);
+  if (!fsSync.existsSync(blob)) {
+    return res.status(404).json({ ok: false, error: "not found" });
+  }
+  const raw = await fs.readFile(blob, "utf8");
+  const { body } = parseFrontmatter(raw);
+  res.json({ ok: true, markdown: toWire(body, date) });
+});
+
 // --- Bin: restore a trashed item to its original place (soft; rename back) ---
 // Never overwrites: if the destination already exists (e.g. the same slot was
 // re-created), refuse with 409 and leave the item in the bin.

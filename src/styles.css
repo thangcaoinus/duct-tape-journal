@@ -1993,6 +1993,93 @@ button.cal-cell:hover {
   padding: 1px var(--s-2);
 }
 
+/* ===== Gather tab: Topics | Concepts segmented toggle + topic rows ===== */
+/* A LIGHT segmented control (the overlay's is white-on-dark) — paper chips. */
+.gather-viewtoggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: var(--s-4);
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  background: var(--paper-shade);
+}
+.gather-viewtoggle button {
+  font: inherit;
+  font-size: var(--t-small);
+  padding: var(--s-1) var(--s-4);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.gather-viewtoggle button:hover {
+  color: var(--ink);
+}
+.gather-viewtoggle button.active {
+  background: var(--paper);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.gather-viewtoggle button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 4px var(--accent);
+}
+
+/* Topic list rows — the clickable button fills the paper card, like concepts. */
+.bin-pane .resource.topic-row {
+  padding: 0;
+  overflow: hidden;
+}
+.topic-open {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  padding: var(--s-4);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+.topic-open:hover {
+  background: var(--accent-tint);
+}
+.topic-open-name {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: var(--t-head);
+  color: var(--topic-fg);
+}
+.topic-open-name::before {
+  content: "#";
+  color: var(--muted);
+  font-weight: 400;
+}
+.topic-open-count {
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+.topic-open-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-left: auto;
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+.topic-sent-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
 /* Detail editor: keywords + page notes stacked. */
 .concept-edit {
   display: flex;

@@ -6,6 +6,9 @@ import {
   saveConcept,
   rescanConcept,
   loadConceptEntry,
+  loadStats,
+  loadTopicEntries,
+  loadEntry,
 } from "./api.js";
 import { DayFlow } from "./lib/pages.jsx";
 import { refreshConcepts } from "./lib/concepts.jsx";
@@ -17,9 +20,48 @@ import { refreshConcepts } from "./lib/concepts.jsx";
 // entry keeps its link and just flags it "in tore". There is deliberately no
 // remove-link or permanent-delete control anywhere here.
 //
-// Two views, like DayOverlay: the concept LIST (with a create form) and one
-// concept's DETAIL (editable name/keywords/page, rescan, and its linked entries).
+// The "Gather" tab: two ways entries get grouped, switched by a segmented toggle.
+//   - TOPICS: entries sharing an exact `topic:` frontmatter word (set while
+//     drafting). Read-only browsing, gathered fresh by an archive scan.
+//   - CONCEPTS: the Obsidian-lite tagging layer below — named ideas + keywords
+//     that gather entries by whole-word BODY grep, with editable notes + rescan.
+// Each side has its own list ⇋ detail, like DayOverlay's view modes.
 export default function Concepts({ openTarget }) {
+  const [view, setView] = useState("topics"); // 'topics' | 'concepts'
+
+  // A concept-word deep-link (clicking a highlighted word in a read view) must
+  // land on the CONCEPTS side, not Topics.
+  useEffect(() => {
+    if (openTarget?.slug) setView("concepts");
+  }, [openTarget?.slug, openTarget?.nonce]);
+
+  return (
+    <div className="gather-pane">
+      <div className="gather-viewtoggle" role="tablist" aria-label="Gather by">
+        <button
+          role="tab"
+          aria-selected={view === "topics"}
+          className={view === "topics" ? "active" : ""}
+          onClick={() => setView("topics")}
+        >
+          Topics
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === "concepts"}
+          className={view === "concepts" ? "active" : ""}
+          onClick={() => setView("concepts")}
+        >
+          Concepts
+        </button>
+      </div>
+      {view === "topics" ? <Topics /> : <ConceptsView openTarget={openTarget} />}
+    </div>
+  );
+}
+
+// --- The Concepts side: list (with create) ⇋ one concept's detail. ---
+function ConceptsView({ openTarget }) {
   const [concepts, setConcepts] = useState(null); // null = loading
   const [openSlug, setOpenSlug] = useState(null);
 
@@ -47,11 +89,164 @@ export default function Concepts({ openTarget }) {
   }
 
   return (
-    <ConceptList
-      concepts={concepts}
-      onOpen={setOpenSlug}
-      onCreated={refresh}
-    />
+    <ConceptList concepts={concepts} onOpen={setOpenSlug} onCreated={refresh} />
+  );
+}
+
+// --- The Topics side: list of subject words (count + sentiment) ⇋ one topic's
+// entries. Read-only — topics are created while writing, not here. ---
+function Topics() {
+  const [topics, setTopics] = useState(null); // null = loading
+  const [openTopic, setOpenTopic] = useState(null);
+
+  useEffect(() => {
+    loadStats().then((s) => setTopics(s.topics || []));
+  }, []);
+
+  if (openTopic) {
+    return <TopicDetail topic={openTopic} onBack={() => setOpenTopic(null)} />;
+  }
+  return <TopicList topics={topics} onOpen={setOpenTopic} />;
+}
+
+// Sentiment dot color for a -100..100 score (sage↔rust), matching Home's tint.
+function sentimentDot(s) {
+  if (s == null) return "var(--muted)";
+  const mag = Math.min(1, Math.abs(s) / 100);
+  const alpha = 0.4 + mag * 0.6;
+  const rgb = s >= 0 ? "91, 122, 107" : "179, 84, 47"; // --accent / --danger
+  return `rgba(${rgb}, ${alpha.toFixed(2)})`;
+}
+
+function TopicList({ topics, onOpen }) {
+  if (topics === null) {
+    return (
+      <div className="bin-pane">
+        <div className="page-header">
+          <h2>Gather</h2>
+          <span className="page-sub">loading…</span>
+          <div className="page-rule" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="bin-pane">
+      <div className="page-header">
+        <h2>Gather · Topics</h2>
+        <span className="page-sub">entries grouped by their subject word</span>
+        <div className="page-rule" />
+      </div>
+      {topics.length === 0 ? (
+        <p className="empty">
+          No topics yet — set a topic while writing and it'll gather here.
+        </p>
+      ) : (
+        <ul className="resource-list topic-list">
+          {topics.map((t) => (
+            <li key={t.topic} className="resource topic-row">
+              <button className="topic-open" onClick={() => onOpen(t.topic)}>
+                {/* the "#" is drawn by CSS (.topic-open-name::before) */}
+                <span className="topic-open-name">{t.topic}</span>
+                <span className="topic-open-count">
+                  {t.count} entr{t.count === 1 ? "y" : "ies"}
+                </span>
+                {t.avgSentiment != null && (
+                  <span className="topic-open-sent">
+                    <span
+                      className="topic-sent-dot"
+                      style={{ background: sentimentDot(t.avgSentiment) }}
+                    />
+                    {t.avgSentiment > 0 ? `+${t.avgSentiment}` : t.avgSentiment}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TopicDetail({ topic, onBack }) {
+  const [entries, setEntries] = useState(null); // null = loading
+
+  useEffect(() => {
+    loadTopicEntries(topic).then(setEntries);
+  }, [topic]);
+
+  const list = entries || [];
+  return (
+    <div className="bin-pane">
+      <div className="page-header">
+        <button className="btn-ghost" onClick={onBack}>
+          ‹ Topics
+        </button>
+        <h2 className="concept-detail-title">#{topic}</h2>
+        <span className="page-sub">
+          {entries === null
+            ? "loading…"
+            : `${list.length} entr${list.length === 1 ? "y" : "ies"}`}
+        </span>
+        <div className="page-rule" />
+      </div>
+
+      <section className="bin-group">
+        {entries === null ? (
+          <p className="empty">Loading…</p>
+        ) : list.length === 0 ? (
+          <p className="empty">No entries carry this topic.</p>
+        ) : (
+          <ul className="resource-list">
+            {list.map((e) => (
+              <TopicLink key={`${e.date}/${e.entry}`} link={e} />
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+// One topic-entry row with a lazy read-only preview — the ConceptLink pattern,
+// but slug-independent (loadEntry) and with no "in tore" tag (topic entries are
+// always live).
+function TopicLink({ link }) {
+  const [open, setOpen] = useState(false);
+  const [markdown, setMarkdown] = useState(null);
+
+  function togglePreview() {
+    if (!open && markdown === null) {
+      loadEntry(link.date, link.entry).then(setMarkdown);
+    }
+    setOpen((o) => !o);
+  }
+
+  return (
+    <li className="resource bin-entry">
+      <div className="bin-entry-row">
+        <div className="resource-meta">
+          <code className="resource-name">
+            {link.date} · {link.entry.replace(/\.md$/, "")}
+          </code>
+        </div>
+        <div className="resource-actions">
+          <button onClick={togglePreview}>{open ? "Hide" : "Preview"}</button>
+        </div>
+      </div>
+      {open && (
+        <div className="bin-preview">
+          {markdown === null ? (
+            <p className="empty">Loading preview…</p>
+          ) : markdown.trim() === "" ? (
+            <p className="empty">(empty entry)</p>
+          ) : (
+            <DayFlow entries={[{ name: link.entry, markdown }]} />
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -90,7 +285,7 @@ function ConceptList({ concepts, onOpen, onCreated }) {
   return (
     <div className="bin-pane">
       <div className="page-header">
-        <h2>Concepts</h2>
+        <h2>Gather · Concepts</h2>
         <span className="page-sub">
           {concepts === null
             ? "loading…"

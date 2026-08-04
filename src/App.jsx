@@ -140,7 +140,7 @@ export default function App() {
             mode={mode}
             onGo={go}
             icon="concepts"
-            label="Concepts"
+            label="Gather"
           />
 
           <span className="rail-group-label">Recover</span>

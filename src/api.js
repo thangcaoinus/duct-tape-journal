@@ -156,6 +156,24 @@ export async function loadConceptEntry(slug, date, name) {
   return body.markdown ?? "";
 }
 
+// --- Topics browsing (the Gather tab's Topics view) ---
+
+// Entries whose frontmatter topic == the given word: [{date, entry, matched}].
+export async function loadTopicEntries(topic) {
+  const { body } = await json(
+    await fetch(`/api/topics/${encodeURIComponent(topic)}/entries`)
+  );
+  return body.entries ?? [];
+}
+
+// A finalized entry's markdown body (wire paths) for preview — slug-independent.
+export async function loadEntry(date, name) {
+  const { body } = await json(
+    await fetch(`/api/entry/${date}/${encodeURIComponent(name)}`)
+  );
+  return body.markdown ?? "";
+}
+
 // --- Sentiment ---
 
 // Whether the neural sentiment model loaded (offline+uncached => false). Lets the
