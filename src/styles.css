@@ -2119,3 +2119,288 @@ button.cal-cell:hover {
   font-size: 11px;
   color: var(--muted);
 }
+
+/* ==================== Home dashboard ==================== */
+/* A calm overview surface. Serif identity for headings (the book's voice),
+   restrained data marks in the accent/danger diverging pair + topic tokens.
+   Everything token-driven; each section is a light journal break. */
+.home-pane {
+  padding-bottom: var(--s-6);
+}
+.home-totals {
+  font-family: var(--font-serif);
+  font-size: var(--t-head);
+  color: var(--ink);
+  margin: 0 0 var(--s-6);
+}
+.home-totals strong {
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+.home-section {
+  margin-bottom: var(--s-7);
+}
+.home-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--paper-edge);
+}
+.home-section-head h3 {
+  font-family: var(--font-serif);
+  font-size: var(--t-head);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.home-section-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+.home-note {
+  color: var(--muted);
+  font-style: italic;
+  font-size: var(--t-small);
+  margin: 0;
+}
+
+/* --- Sentiment timeline (inline SVG diverging area/line) --- */
+.home-chart {
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--s-4) var(--s-5) var(--s-3);
+}
+.timeline-svg {
+  display: block;
+  width: 100%;
+  height: 160px;
+}
+.timeline-zero {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+.timeline-area.pos {
+  fill: var(--accent);
+  opacity: 0.14;
+}
+.timeline-area.neg {
+  fill: var(--danger);
+  opacity: 0.12;
+}
+.timeline-line {
+  fill: none;
+  stroke: var(--accent-deep);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.timeline-dot.pos {
+  fill: var(--accent);
+}
+.timeline-dot.neg {
+  fill: var(--danger);
+}
+.timeline-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--t-small);
+  color: var(--muted);
+  margin-top: var(--s-1);
+}
+
+/* --- Mood heatmap: compact month grids, cells tinted by sentiment --- */
+.heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-5);
+}
+.heatmap-month {
+  flex: 0 0 auto;
+}
+.heatmap-label {
+  font-family: var(--font-serif);
+  font-size: var(--t-small);
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: var(--s-2);
+}
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 16px);
+  grid-auto-rows: 16px;
+  gap: 3px;
+}
+.heatmap-cell {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--paper-edge);
+  background: var(--paper);
+  padding: 0;
+}
+.heatmap-cell.out {
+  border-color: transparent;
+  background: transparent;
+}
+button.heatmap-cell.has {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+button.heatmap-cell.has:hover {
+  transform: scale(1.18);
+  box-shadow: var(--shadow-sm);
+}
+.heatmap-cell.today {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+button.heatmap-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-tint), 0 0 0 3px var(--accent);
+}
+
+/* --- Topic × sentiment bars --- */
+.topic-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.topic-bar-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: var(--s-3);
+}
+.topic-bar-name {
+  font-family: var(--font-serif);
+  font-size: var(--t-small);
+  color: var(--topic-fg);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topic-bar-track {
+  height: 14px;
+  background: var(--paper-shade);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.topic-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent); /* overridden inline by sentiment tint */
+}
+.topic-bar-meta {
+  font-size: var(--t-small);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.topic-bar-score {
+  font-style: normal;
+  margin-left: var(--s-1);
+  color: var(--ink);
+}
+
+/* --- Curated bundle of pages --- */
+.bundle-crit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+}
+.bundle-chip {
+  font: inherit;
+  font-size: var(--t-small);
+  padding: var(--s-1) var(--s-3);
+  border-radius: 999px;
+  border: 1px solid var(--paper-edge);
+  background: var(--paper);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.bundle-chip:hover {
+  background: var(--accent-tint);
+  color: var(--ink);
+}
+.bundle-chip.active {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+.bundle-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 4px var(--accent);
+}
+.bundle-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-4);
+}
+.bundle-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  text-align: left;
+  font: inherit;
+  padding: var(--s-4);
+  min-height: 120px;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+.bundle-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+}
+.bundle-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 4px var(--accent);
+}
+.bundle-card-date {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+.bundle-card-topic {
+  font-family: var(--font-serif);
+  font-size: var(--t-small);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--topic-fg);
+}
+.bundle-card-snippet {
+  font-family: var(--font-serif);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+@media (max-width: 620px) {
+  .topic-bar-row {
+    grid-template-columns: 90px 1fr auto;
+  }
+}

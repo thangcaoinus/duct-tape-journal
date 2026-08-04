@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Home from "./Home.jsx";
 import Editor from "./Editor.jsx";
 import Reader from "./Reader.jsx";
 import Calendar from "./Calendar.jsx";
@@ -10,6 +11,13 @@ import { onOpenConcept } from "./lib/concepts.jsx";
 // A small, single-stroke icon set for the rail. Drawn inline (not emoji/glyphs)
 // so the whole nav shares one weight and cap style. currentColor + CSS stroke.
 const Icon = {
+  home: (
+    <>
+      <path d="M4 11 12 4l8 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-5h4v5" />
+    </>
+  ),
   write: (
     <path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z" />
   ),
@@ -57,8 +65,9 @@ function RailIcon({ name }) {
 }
 
 export default function App() {
-  // Boots to write mode (today's editor). The rail flips modes.
-  const [mode, setMode] = useState("write");
+  // Boots to the Home dashboard (an overview reads better as a landing than a
+  // blank editor). The rail flips modes.
+  const [mode, setMode] = useState("home");
 
   // The Reader is expensive to build (it loads every day and measures pagination
   // off-screen). We keep it MOUNTED across tab switches so it renders + measures
@@ -95,8 +104,9 @@ export default function App() {
     setMode(next);
   }
 
-  // Calendar + Read get the wider content bound within the same shell.
-  const wide = mode === "calendar" || mode === "read";
+  // Home + Calendar + Read get the wider content bound within the same shell so
+  // the dashboard / grid / book spread breathe.
+  const wide = mode === "home" || mode === "calendar" || mode === "read";
 
   return (
     <div className="app-shell">
@@ -110,6 +120,9 @@ export default function App() {
 
       <nav className="rail" aria-label="Primary">
         <div className="rail-nav">
+          <span className="rail-group-label">Home</span>
+          <RailLink id="home" mode={mode} onGo={go} icon="home" label="Home" />
+
           <span className="rail-group-label">Write</span>
           <RailLink id="write" mode={mode} onGo={go} icon="write" label="Write" />
 
@@ -151,6 +164,9 @@ export default function App() {
               prefers-reduced-motion in CSS. */}
           {mode !== "read" && (
             <div className="page-turn" key={mode}>
+              {mode === "home" && (
+                <Home dataVersion={dataVersion} onChanged={bumpData} />
+              )}
               {mode === "write" && (
                 <Editor onFinalized={bumpData} onDrawerToggle={setWriteOpen} />
               )}

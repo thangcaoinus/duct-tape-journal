@@ -51,6 +51,15 @@ export async function loadDays() {
   return days.map((d) => d.date);
 }
 
+// Aggregate stats for the Home dashboard (one server-side archive walk):
+// {days:[{date,count,avgSentiment}], topics:[{topic,count,avgSentiment}],
+//  totals:{entries,activeDays,scored,firstDate,lastDate}}. avgSentiment is null
+// where nothing in that bucket was scored.
+export async function loadStats() {
+  const { body } = await json(await fetch(`/api/stats`));
+  return body.stats ?? { days: [], topics: [], totals: {} };
+}
+
 // Soft-delete a finalized entry (calendar day-overlay's by-entry mode). Does
 // NOT touch the day's images — entry and image deletion are independent.
 export async function deleteEntry(date, name) {

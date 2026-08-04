@@ -475,6 +475,98 @@ app.get("/api/days", async (req, res) => {
   res.json({ ok: true, days });
 });
 
+// --- Dashboard stats: ONE archive walk aggregating per-day + per-topic sentiment
+// and totals for the Home dashboard. Read-only, derived fresh each call (no cache,
+// no stored aggregate) — reuses the same walk shape as scoreArchive/scanArchive.
+// avgSentiment is null when NO entry in that bucket carries a sentiment (model was
+// offline at finalize) — the frontend renders those as "unscored", never as 0. ---
+app.get("/api/stats", async (req, res) => {
+  let dirs = [];
+  try {
+    dirs = await fs.readdir(DIARY, { withFileTypes: true });
+  } catch {
+    return res.json({
+      ok: true,
+      stats: { days: [], topics: [], totals: emptyTotals() },
+    });
+  }
+  const days = [];
+  const topicAgg = new Map(); // topic -> {count, sum, scored}
+  let entries = 0;
+  let scored = 0;
+  for (const d of dirs) {
+    if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
+    let inner = [];
+    try {
+      inner = await fs.readdir(path.join(DIARY, d.name));
+    } catch {
+      continue;
+    }
+    let dayCount = 0;
+    let daySum = 0;
+    let dayScored = 0;
+    for (const name of inner) {
+      if (!/^entry-\d+\.md$/.test(name)) continue;
+      let meta = {};
+      try {
+        const raw = await fs.readFile(path.join(DIARY, d.name, name), "utf8");
+        meta = parseFrontmatter(raw).meta;
+      } catch {
+        continue; // unreadable entry — skip, never abort the walk
+      }
+      entries++;
+      dayCount++;
+      const hasSent = typeof meta.sentiment === "number";
+      if (hasSent) {
+        scored++;
+        daySum += meta.sentiment;
+        dayScored++;
+      }
+      if (meta.topic) {
+        const t = topicAgg.get(meta.topic) || { count: 0, sum: 0, scored: 0 };
+        t.count++;
+        if (hasSent) {
+          t.sum += meta.sentiment;
+          t.scored++;
+        }
+        topicAgg.set(meta.topic, t);
+      }
+    }
+    if (dayCount > 0) {
+      days.push({
+        date: d.name,
+        count: dayCount,
+        avgSentiment: dayScored ? Math.round(daySum / dayScored) : null,
+      });
+    }
+  }
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  const topics = [...topicAgg.entries()]
+    .map(([topic, t]) => ({
+      topic,
+      count: t.count,
+      avgSentiment: t.scored ? Math.round(t.sum / t.scored) : null,
+    }))
+    .sort((a, b) => b.count - a.count || a.topic.localeCompare(b.topic));
+  res.json({
+    ok: true,
+    stats: {
+      days,
+      topics,
+      totals: {
+        entries,
+        activeDays: days.length,
+        scored,
+        firstDate: days.length ? days[0].date : null,
+        lastDate: days.length ? days[days.length - 1].date : null,
+      },
+    },
+  });
+});
+function emptyTotals() {
+  return { entries: 0, activeDays: 0, scored: 0, firstDate: null, lastDate: null };
+}
+
 // --- Sentiment: is the neural model available this process? (UI gating) ---
 app.get("/api/sentiment/status", async (req, res) => {
   const pipe = await getSentimentPipe();
