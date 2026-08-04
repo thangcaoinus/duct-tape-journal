@@ -17,21 +17,20 @@ const RIFFLE_CAP = 16;
 const RIFFLE_TOTAL_MS = 900;
 const MIN_FLIP_MS = 70;
 
-// Label a day-picker option: "Tue Jul 21, 2026 · 2 entries" (date parsed LOCAL,
-// no UTC roll). The count makes it obvious which days hold how much.
+// Label a day-picker option compactly: "Jul 21, 2026 · 2" (date parsed LOCAL, no
+// UTC roll). Short so the picker reads as a tidy chip, not a sentence; the count
+// still shows which days hold how much.
 function formatDayOption(date, count) {
   const [y, m, d] = date.split("-").map(Number);
   let label = date;
   if (y && m && d) {
     label = new Date(y, m - 1, d).toLocaleDateString(undefined, {
-      weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
     });
   }
-  const n = count ?? 0;
-  return `${label} · ${n} ${n === 1 ? "entry" : "entries"}`;
+  return `${label} · ${count ?? 0}`;
 }
 
 // Remember the last-read position as a stable {date, pageInDay} (NOT the flat
@@ -410,10 +409,10 @@ export default function Reader({ active = true, dataVersion = 0 }) {
         >
           Next ▸
         </button>
+        {/* Just the reading position — the day picker already names the current
+            day, so the raw date here was redundant chrome. */}
         <span className="status">
-          {total === 0
-            ? "no entries"
-            : `${curDate || ""} · page ${pageIndex + 1} of ${total}`}
+          {total === 0 ? "no entries" : `page ${pageIndex + 1} of ${total}`}
         </span>
       </div>
 

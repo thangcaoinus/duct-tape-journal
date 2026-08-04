@@ -38,10 +38,25 @@ const EXTENSIONS = [
   Markdown.configure({ html: false }),
 ];
 
-// Join a day's entries into one markdown doc, separated by an <hr>.
-export function joinEntries(entries) {
+// Invisible sentinel (zero-width joiner) that prefixes an injected topic
+// paragraph. It rides through tiptap-markdown as ordinary text into a plain <p>,
+// then `tagEntryTopics` finds exactly these paragraphs post-render and dresses
+// them as a #topic chip — without ever matching real prose.
+const TOPIC_SENTINEL = "⁣"; // invisible separator
+
+// Join a day's entries into one markdown doc, separated by an <hr>. When
+// `showTopics` is set (default), each entry that has a topic gets a sentinel
+// paragraph prepended so it opens with a styled #topic tag. Because BOTH the
+// render pass and the off-screen measure pass call this, the topic block is part
+// of the measured flow too — pagination geometry stays honest.
+export function joinEntries(entries, showTopics = true) {
   return entries
-    .map((e, i) => (i === 0 ? "" : "\n\n---\n\n") + e.markdown)
+    .map((e, i) => {
+      const sep = i === 0 ? "" : "\n\n---\n\n";
+      const topic = showTopics ? e.meta?.topic : null;
+      const head = topic ? `${TOPIC_SENTINEL}${topic}\n\n` : "";
+      return sep + head + e.markdown;
+    })
     .join("");
 }
 
@@ -49,8 +64,11 @@ export function joinEntries(entries) {
 // range [start,end) is shown (the rest is display:none) — whole blocks only, so
 // nothing is ever clipped mid-line. `onImagesLoad` fires once images settle so
 // callers can re-measure.
-export function DayFlow({ entries, onImagesLoad, range }) {
-  const markdown = useMemo(() => joinEntries(entries), [entries]);
+export function DayFlow({ entries, onImagesLoad, range, showTopics = true }) {
+  const markdown = useMemo(
+    () => joinEntries(entries, showTopics),
+    [entries, showTopics]
+  );
   const editor = useEditor(
     {
       editable: false,
@@ -84,6 +102,17 @@ export function DayFlow({ entries, onImagesLoad, range }) {
     if (!pm) return;
     highlightConcepts(pm, matcher);
   }, [editor, markdown, matcher]);
+
+  // Dress the injected topic paragraphs (see joinEntries) as #topic chips. Only
+  // restyles the block that's already in the flow — it never adds or removes a
+  // block, so the measured page breaks and the rendered ones stay identical.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pm = el.querySelector(".ProseMirror");
+    if (!pm) return;
+    tagEntryTopics(pm);
+  }, [editor, markdown]);
 
   // One delegated hover handler for all marks in this flow.
   useEffect(() => {
@@ -224,6 +253,25 @@ export function DayFlow({ entries, onImagesLoad, range }) {
         )}
     </div>
   );
+}
+
+// Find the sentinel-prefixed paragraphs joinEntries injected and turn each into a
+// #topic chip: strip the invisible marker, prepend "#", and tag the block so CSS
+// can style it. Idempotent — a paragraph already carrying `.entry-topic-mark` is
+// skipped, so re-running on re-render is safe. It only mutates blocks that are
+// ALREADY in the flow (never adds/removes one), so it can't shift pagination.
+function tagEntryTopics(pm) {
+  for (const block of pm.children) {
+    if (block.classList.contains("entry-topic-mark")) continue;
+    const text = block.textContent || "";
+    if (!text.startsWith(TOPIC_SENTINEL)) continue;
+    const topic = text.slice(TOPIC_SENTINEL.length).trim();
+    if (!topic) continue;
+    block.classList.add("entry-topic-mark");
+    // Store the bare topic; the leading "#" is drawn by CSS (::before) so it can
+    // be styled independently without ::first-letter catching the first word char.
+    block.textContent = topic;
+  }
 }
 
 // Wrap every whole-word concept match in a .concept-mark span, in place, over the

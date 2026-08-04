@@ -719,6 +719,12 @@ button.cal-cell:focus-visible,
   color: var(--muted);
   font-size: var(--t-small);
 }
+/* In the book Reader the page position reads as a quiet serif dateline, in the
+   book's own voice — not a form-status line like the editor's "saving…". */
+.reader-pane .toolbar .status {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
 /* Status text that sits in a toolbar row should stay on one line at the end. */
 .toolbar .status {
   margin-left: auto;
@@ -1294,6 +1300,36 @@ button.cal-cell:focus-visible,
   color: var(--muted);
   border-top: 1px solid var(--book-paper-edge);
   padding-top: 4px;
+}
+
+/* Per-entry topic marker, injected at the top of each entry in the joined read
+   flow (see joinEntries / tagEntryTopics). NOT a filled pill — that read as a UI
+   button pasted onto a page of prose. Instead it's a quiet inked subject line in
+   the book's own serif voice: small-caps, muted topic ink, a faint hairline
+   under it, with the "#" set lighter as a lead-in glyph. Reads like a hand-noted
+   subject at the head of the entry. It's a real block in the paginated flow, so
+   its box is measured; keep the margins modest so it sits snug above the first
+   line. */
+.entry-topic-mark {
+  display: block;
+  margin: 0 0 var(--s-2);
+  color: var(--topic-fg);
+  font-family: var(--font-serif);
+  font-size: var(--t-small);
+  font-variant: small-caps;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.entry-topic-mark::before {
+  /* the leading "#" — set lighter/lower-weight so the word leads, not the mark */
+  content: "#";
+  margin-right: 1px;
+  color: var(--muted);
+  font-weight: 400;
+}
+/* An entry that follows an <hr> separator gives the marker a little air above. */
+.day-flow .ProseMirror hr + .entry-topic-mark {
+  margin-top: var(--s-3);
 }
 
 /* Off-screen measuring host: same content width as a page so measured page

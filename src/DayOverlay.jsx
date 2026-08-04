@@ -251,7 +251,9 @@ export default function DayOverlay({ date, onClose, onChanged }) {
                           </button>
                         </div>
                         <div className="entry-card-body">
-                          <DayFlow entries={[curEntry]} />
+                          {/* The card header already shows #topic via EntryMeta,
+                              so suppress the in-flow chip here to avoid doubling. */}
+                          <DayFlow entries={[curEntry]} showTopics={false} />
                         </div>
                       </div>
                     </div>
