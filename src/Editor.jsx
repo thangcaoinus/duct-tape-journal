@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Mathematics from "@tiptap/extension-mathematics";
@@ -31,6 +31,34 @@ function mathAtCursor(text, offset) {
   const dollarsBefore = (text.slice(0, before).match(/\$/g) || []).length;
   if (dollarsBefore % 2 !== 0) return "";
   return text.slice(before + 1, after);
+}
+
+// Drawn, single-stroke formatting icons for the selection bubble menu — mirrors
+// the rail's inline-SVG convention (App.jsx), never glyphs/emoji. Color + active
+// state flow through `currentColor`; the svg is decorative (button carries the
+// aria-label), so it's aria-hidden.
+const FMT_ICON = {
+  bold: (
+    <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />
+  ),
+  italic: <path d="M14 5h-4M14 19h-4M15 5l-4 14" />,
+  heading: <path d="M6 5v14M18 5v14M6 12h12" />,
+  bullet: (
+    <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  ),
+  ordered: <path d="M10 6h10M10 12h10M10 18h10M4 6h1v4M4 10h2M4.5 15.5h1.5v1.5H4v1.5h2" />,
+  quote: (
+    <path d="M7 7c-1.7 0-3 1.3-3 3s1.3 3 3 3c0 2-1 3-3 3M17 7c-1.7 0-3 1.3-3 3s1.3 3 3 3c0 2-1 3-3 3" />
+  ),
+  code: <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" />,
+};
+
+function FmtIcon({ name }) {
+  return (
+    <svg className="fmt-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {FMT_ICON[name]}
+    </svg>
+  );
 }
 
 export default function Editor({ onFinalized, onDrawerToggle }) {
@@ -245,6 +273,81 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
           the drawer reads as part of this tab — no overlay, no dimming. */}
       <div className={`editor-body ${drawerOpen ? "drawer-open" : ""}`}>
         <div className="editor-main">
+          {editor && (
+            <BubbleMenu
+              editor={editor}
+              className="bubble-menu"
+              updateDelay={0}
+              tippyOptions={{ duration: 120 }}
+            >
+              <button
+                type="button"
+                aria-label="Bold"
+                title="Bold"
+                className={editor.isActive("bold") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+              >
+                <FmtIcon name="bold" />
+              </button>
+              <button
+                type="button"
+                aria-label="Italic"
+                title="Italic"
+                className={editor.isActive("italic") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+              >
+                <FmtIcon name="italic" />
+              </button>
+              <button
+                type="button"
+                aria-label="Inline code"
+                title="Inline code"
+                className={editor.isActive("code") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleCode().run()}
+              >
+                <FmtIcon name="code" />
+              </button>
+              <span className="bubble-sep" aria-hidden="true" />
+              <button
+                type="button"
+                aria-label="Heading"
+                title="Heading"
+                className={editor.isActive("heading", { level: 2 }) ? "is-active" : ""}
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 2 }).run()
+                }
+              >
+                <FmtIcon name="heading" />
+              </button>
+              <button
+                type="button"
+                aria-label="Bullet list"
+                title="Bullet list"
+                className={editor.isActive("bulletList") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+              >
+                <FmtIcon name="bullet" />
+              </button>
+              <button
+                type="button"
+                aria-label="Numbered list"
+                title="Numbered list"
+                className={editor.isActive("orderedList") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              >
+                <FmtIcon name="ordered" />
+              </button>
+              <button
+                type="button"
+                aria-label="Quote"
+                title="Quote"
+                className={editor.isActive("blockquote") ? "is-active" : ""}
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              >
+                <FmtIcon name="quote" />
+              </button>
+            </BubbleMenu>
+          )}
           <EditorContent editor={editor} className="prose" />
           <MathHelper currentMath={currentMath} />
         </div>

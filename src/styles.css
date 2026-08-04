@@ -588,7 +588,8 @@ button.cal-cell:focus-visible,
 .overlay-viewtoggle button:focus-visible,
 .overlay-controls button:focus-visible,
 .drawer-close:focus-visible,
-.overlay-close:focus-visible {
+.overlay-close:focus-visible,
+.bubble-menu button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-tint), 0 0 0 4px var(--accent);
 }
@@ -788,6 +789,76 @@ button.cal-cell:focus-visible,
   font-family: var(--font-serif);
   font-size: 17px;
   line-height: 28px; /* sits on the feint rules */
+}
+
+/* --- Selection bubble menu: a small floating formatting bar that appears just
+   above a text selection in the editor. Reuses the paper-chip language; the
+   dense icon buttons take the ghost idiom (flat at rest) so the bar stays quiet
+   over the writing sheet. It floats above the page, so it earns the deepest
+   elevation — a real offset + soft blur, never a flat halo. --- */
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s-1);
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  animation: bubble-rise 0.12s ease-out;
+}
+.bubble-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.bubble-menu button:hover {
+  background: var(--accent-tint);
+  color: var(--ink);
+}
+/* Active = the format is applied to the selection; sage accent marks it, the
+   same signal the rail uses for the active tab. */
+.bubble-menu button.is-active {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+.bubble-menu .bubble-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px var(--s-1);
+  background: var(--paper-edge);
+}
+.fmt-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@keyframes bubble-rise {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble-menu {
+    animation: none;
+  }
 }
 
 .entry {
