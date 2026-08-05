@@ -70,12 +70,17 @@ function serializeFrontmatter(meta, body) {
   return `---\n${block}\n---\n\n${body}`;
 }
 
-// Offline neural sentiment (Transformers.js / DistilBERT-SST-2). Lexicon scorers
-// (VADER) can't read framing — a negative mulling full of hopeful words scored
-// positive, and vice-versa — so we score with a real model. The model is fetched
-// once from the hub then cached on disk; after that it runs fully offline. If it
-// can't load (offline AND uncached), the feature degrades gracefully: the scorer
-// returns null and the sentiment key is simply omitted (never crashes finalize).
+// Offline neural sentiment (Transformers.js / twitter-roberta-base-sentiment-
+// latest — a 3-class negative/neutral/positive classifier). Lexicon scorers
+// (VADER) can't read framing; a binary SST-2 classifier's `score` is CONFIDENCE
+// (≈1.0 for almost all prose) so mapping it to magnitude pinned everything at
+// ±100; and a 1–5 star review-rater under-read resolved/hedged diary prose ("not
+// a bad day at all" scored negative). This model has an explicit NEUTRAL class and
+// was trained on conversational text, so it handles diary framing better (A/B'd on
+// the real archive). The model is fetched once from the hub then cached on disk;
+// after that it runs fully offline. If it can't load (offline AND uncached), the
+// feature degrades gracefully: the scorer returns null and the sentiment key is
+// simply omitted (never crashes finalize).
 let _sentimentPipe = null; // resolved pipeline, or null when unavailable
 let _sentimentTried = false; // have we attempted a load this process?
 async function getSentimentPipe() {
@@ -85,7 +90,7 @@ async function getSentimentPipe() {
     const { pipeline } = await import("@huggingface/transformers");
     _sentimentPipe = await pipeline(
       "sentiment-analysis",
-      "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+      "Xenova/twitter-roberta-base-sentiment-latest"
     );
   } catch (e) {
     console.warn("sentiment model unavailable (offline?):", e.message);
@@ -96,15 +101,25 @@ async function getSentimentPipe() {
 
 // Score body text to an integer -100..100 (same wire contract as before), or
 // null when the model is unavailable so callers can omit the frontmatter key.
+// The model emits three class probabilities (negative/neutral/positive); the
+// signed score is simply P(positive) − P(negative) × 100 — the neutral mass pulls
+// toward 0, so a calm/mixed/resolved entry lands near the middle instead of a pole.
 async function scoreSentiment(text) {
   if (!text || !text.trim()) return null;
   const pipe = await getSentimentPipe();
   if (!pipe) return null; // offline / model missing
-  // DistilBERT-SST-2 caps at 512 tokens; truncate defensively (~1800 chars).
+  // RoBERTa caps at 512 tokens; truncate defensively (~1800 chars).
   const input = text.length > 1800 ? text.slice(0, 1800) : text;
-  const [out] = await pipe(input); // {label:'POSITIVE'|'NEGATIVE', score:0..1}
-  const signed = out.label === "NEGATIVE" ? -out.score : out.score;
-  return Math.round(signed * 100);
+  const out = await pipe(input, { top_k: 3 }); // [{label:"positive"|…, score:0..1}, …]
+  let pos = null,
+    neg = null;
+  for (const o of out) {
+    const l = o.label.toLowerCase();
+    if (l === "positive") pos = o.score;
+    else if (l === "negative") neg = o.score;
+  }
+  if (pos === null && neg === null) return null; // unexpected labels — degrade
+  return Math.round(((pos ?? 0) - (neg ?? 0)) * 100);
 }
 
 // A topic is a single lowercase word (one continuous \w+), like an email subject.
