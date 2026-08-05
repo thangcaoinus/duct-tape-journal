@@ -158,12 +158,25 @@ export async function loadConceptEntry(slug, date, name) {
 
 // --- Topics browsing (the Gather tab's Topics view) ---
 
-// Entries whose frontmatter topic == the given word: [{date, entry, matched}].
+// Entries whose frontmatter topic == the given word, plus the topic's notes page:
+// { entries: [{date, entry, matched, sentiment}], page }.
 export async function loadTopicEntries(topic) {
   const { body } = await json(
     await fetch(`/api/topics/${encodeURIComponent(topic)}/entries`)
   );
-  return body.entries ?? [];
+  return { entries: body.entries ?? [], page: body.page ?? "" };
+}
+
+// Save a topic's notes page. Returns {topic, page} or null.
+export async function saveTopic(topic, page) {
+  const { body } = await json(
+    await fetch(`/api/topics/${encodeURIComponent(topic)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page }),
+    })
+  );
+  return body.topic ?? null;
 }
 
 // A finalized entry's markdown body (wire paths) for preview — slug-independent.

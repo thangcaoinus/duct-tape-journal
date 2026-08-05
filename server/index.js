@@ -11,6 +11,7 @@ const DRAFTS = path.join(DIARY, ".drafts");
 const TRASH = path.join(DIARY, ".trash");
 const META = path.join(DIARY, ".meta");
 const TOPICS_FILE = path.join(META, "topics.json");
+const TOPICS_DIR = path.join(META, "topics"); // per-topic index (a dir; coexists with topics.json)
 const CONCEPTS = path.join(META, "concepts");
 
 const PORT = 3001;
@@ -127,6 +128,92 @@ async function addTopic(word) {
   topics.sort();
   await fs.mkdir(META, { recursive: true });
   await fs.writeFile(TOPICS_FILE, JSON.stringify({ topics }), "utf8");
+}
+
+// --- Per-topic index (mirrors the concept storage, minus keywords/grep). ---
+// A topic is the entry's `topic:` frontmatter word, so its link list is exact:
+// every entry whose normTopic(meta.topic) equals this slug, plus a free-form
+// notes page. Storage: one JSON per topic under .meta/topics/<slug>.json, shape
+//   { topic, page, links: [{date, entry}], createdAt, updatedAt }
+// This is a derived convenience — buildTopicIndex can always rebuild it from the
+// archive (the frontmatter word stays the source of truth). Links are append-only
+// (at finalize); nothing here ever removes one.
+const topicIndexPath = (slug) => path.join(TOPICS_DIR, `${path.basename(slug)}.json`);
+
+async function readTopicIndex(slug) {
+  try {
+    return JSON.parse(await fs.readFile(topicIndexPath(slug), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function writeTopicIndex(slug, obj) {
+  await fs.mkdir(TOPICS_DIR, { recursive: true });
+  await fs.writeFile(topicIndexPath(slug), JSON.stringify(obj, null, 2), "utf8");
+}
+
+// Append a link if this {date, entry} isn't already recorded. Only ever ADDS.
+// Returns true when a new link was added.
+function addTopicLink(idx, { date, entry }) {
+  idx.links = idx.links || [];
+  if (idx.links.some((l) => l.date === date && l.entry === entry)) return false;
+  idx.links.push({ date, entry });
+  idx.updatedAt = new Date().toISOString();
+  return true;
+}
+
+// Build (or rebuild) a topic's index from a full archive walk: every finalized
+// entry whose frontmatter topic EXACTLY matches (normTopic equality — never a body
+// grep). Preserves an existing notes `page`. Writes and returns the index. This is
+// the on-demand build + backfill path for topics that predate the index.
+async function buildTopicIndex(slug) {
+  const target = normTopic(slug);
+  const prev = await readTopicIndex(slug);
+  const now = new Date().toISOString();
+  const idx = {
+    topic: target,
+    page: prev?.page || "",
+    links: [],
+    createdAt: prev?.createdAt || now,
+    updatedAt: now,
+  };
+  if (!target) return idx;
+  let dirs = [];
+  try {
+    dirs = await fs.readdir(DIARY, { withFileTypes: true });
+  } catch {
+    dirs = [];
+  }
+  for (const d of dirs) {
+    if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
+    let inner = [];
+    try {
+      inner = await fs.readdir(path.join(DIARY, d.name));
+    } catch {
+      continue;
+    }
+    for (const name of inner) {
+      if (!/^entry-\d+\.md$/.test(name)) continue;
+      try {
+        const raw = await fs.readFile(path.join(DIARY, d.name, name), "utf8");
+        const { meta } = parseFrontmatter(raw);
+        if (normTopic(meta.topic) === target) {
+          addTopicLink(idx, { date: d.name, entry: name });
+        }
+      } catch {
+        continue; // unreadable entry — skip, never abort the walk
+      }
+    }
+  }
+  await writeTopicIndex(slug, idx);
+  return idx;
+}
+
+// Read the index, building it on first use (or when missing). Used by the browse
+// and edit endpoints so a topic set before this feature still works.
+async function ensureTopicIndex(slug) {
+  return (await readTopicIndex(slug)) ?? (await buildTopicIndex(slug));
 }
 
 // --- Concepts: an Obsidian-lite tagging layer (no traversal). ---
@@ -292,6 +379,24 @@ async function findTrashedEntry(date, name) {
   return null;
 }
 
+// Read one entry's stored sentiment (the frontmatter `sentiment` key) for the
+// detail-page graphs. Reads it live, or from trash if the entry is tore'd (concept
+// links can point at a deleted entry). Read-only — never re-scores or writes.
+// Returns the signed -100..100 score, or null when unscored/unreadable.
+async function entrySentiment(date, entry) {
+  let blob = path.join(DIARY, date, entry);
+  if (!fsSync.existsSync(blob)) {
+    blob = await findTrashedEntry(date, entry);
+    if (!blob) return null;
+  }
+  try {
+    const { meta } = parseFrontmatter(await fs.readFile(blob, "utf8"));
+    return typeof meta.sentiment === "number" ? meta.sentiment : null;
+  } catch {
+    return null;
+  }
+}
+
 // Find the next entry number in a day dir; refuse to reuse existing numbers.
 async function nextEntryNumber(dayDir) {
   let files = [];
@@ -415,7 +520,24 @@ app.post("/api/finalize/:date", guardDate, async (req, res) => {
 
   // Body on disk is already in disk-path form; prepend frontmatter and write.
   await fs.writeFile(file, serializeFrontmatter(meta, md), "utf8");
-  if (topic) await addTopic(topic);
+  if (topic) {
+    await addTopic(topic);
+    // Append this entry to its topic index in O(1). If the index doesn't exist
+    // yet we create a minimal one with just this link — older entries are
+    // backfilled lazily by ensureTopicIndex on first browse, not here. Best-effort:
+    // a topic-index hiccup must never fail an otherwise-successful finalize.
+    try {
+      const nowIso = new Date().toISOString();
+      const idx =
+        (await readTopicIndex(topic)) ??
+        { topic, page: "", links: [], createdAt: nowIso, updatedAt: nowIso };
+      if (addTopicLink(idx, { date, entry: `entry-${n}.md` })) {
+        await writeTopicIndex(topic, idx);
+      }
+    } catch (e) {
+      console.error("topic index append failed:", e);
+    }
+  }
   await moveToTrash(draftPath, { kind: "draft", date, name: `${date}.md` });
   // The topic sidecar is draft scaffolding — remove it (best-effort).
   await fs.rm(draftMetaPath, { force: true });
@@ -798,41 +920,37 @@ app.get("/api/topics", async (req, res) => {
 // --- Gather entries by exact topic (the Gather tab's Topics view). Unlike a
 // concept (a body grep), a topic is the entry's `topic:` frontmatter word, so the
 // predicate is an EXACT normTopic equality on meta.topic — never entryMatches.
-// Derived fresh from the same archive walk; no stored topic->entry index. ---
+// Backed by the persisted per-topic index (built + backfilled on first use). Each
+// entry is annotated with its stored sentiment for the detail-page graph. ---
 app.get("/api/topics/:topic/entries", async (req, res) => {
   const target = normTopic(req.params.topic);
-  const out = [];
-  if (target) {
-    let dirs = [];
-    try {
-      dirs = await fs.readdir(DIARY, { withFileTypes: true });
-    } catch {
-      dirs = [];
-    }
-    for (const d of dirs) {
-      if (!d.isDirectory() || !DATE_RE.test(d.name)) continue;
-      let inner = [];
-      try {
-        inner = await fs.readdir(path.join(DIARY, d.name));
-      } catch {
-        continue;
-      }
-      for (const name of inner) {
-        if (!/^entry-\d+\.md$/.test(name)) continue;
-        try {
-          const raw = await fs.readFile(path.join(DIARY, d.name, name), "utf8");
-          const { meta } = parseFrontmatter(raw);
-          if (normTopic(meta.topic) === target) {
-            out.push({ date: d.name, entry: name, matched: target });
-          }
-        } catch {
-          continue; // unreadable entry — skip, never abort the walk
-        }
-      }
-    }
-    out.sort((a, b) => (a.date + a.entry).localeCompare(b.date + b.entry));
+  if (!target) return res.json({ ok: true, topic: target, page: "", entries: [] });
+  const idx = await ensureTopicIndex(target);
+  const links = (idx.links || [])
+    .slice()
+    .sort((a, b) => (a.date + a.entry).localeCompare(b.date + b.entry));
+  const entries = [];
+  for (const l of links) {
+    entries.push({
+      date: l.date,
+      entry: l.entry,
+      matched: target,
+      sentiment: await entrySentiment(l.date, l.entry),
+    });
   }
-  res.json({ ok: true, topic: target, entries: out });
+  res.json({ ok: true, topic: target, page: idx.page || "", entries });
+});
+
+// Update a topic's editable notes page only (a topic has no user-editable name or
+// keywords — it's a frontmatter word). Ensures the index exists first.
+app.put("/api/topics/:topic", async (req, res) => {
+  const target = normTopic(req.params.topic);
+  if (!target) return res.status(400).json({ ok: false, error: "bad topic" });
+  const idx = await ensureTopicIndex(target);
+  if (typeof req.body?.page === "string") idx.page = req.body.page;
+  idx.updatedAt = new Date().toISOString();
+  await writeTopicIndex(target, idx);
+  res.json({ ok: true, topic: { topic: target, page: idx.page } });
 });
 
 // --- A finalized entry's markdown body for preview (frontmatter stripped, wire
@@ -938,10 +1056,14 @@ app.get("/api/concepts/:slug", async (req, res) => {
   const slug = path.basename(req.params.slug);
   const c = await readConcept(slug);
   if (!c) return res.status(404).json({ ok: false, error: "not found" });
-  const links = (c.links || []).map((l) => ({
-    ...l,
-    deleted: !fsSync.existsSync(path.join(DIARY, l.date, l.entry)),
-  }));
+  const links = [];
+  for (const l of c.links || []) {
+    links.push({
+      ...l,
+      deleted: !fsSync.existsSync(path.join(DIARY, l.date, l.entry)),
+      sentiment: await entrySentiment(l.date, l.entry), // for the detail-page graph
+    });
+  }
   res.json({ ok: true, concept: { ...c, slug, links } });
 });
 

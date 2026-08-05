@@ -2306,6 +2306,19 @@ button.cal-cell:hover {
   margin-top: var(--s-1);
 }
 
+/* --- Compact sentiment sparkline (Gather topic + concept detail pages).
+   Reuses the .timeline-* marks; only the frame + height differ from Home. --- */
+.mini-sentiment {
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--s-3) var(--s-4) var(--s-2);
+}
+.mini-sentiment .timeline-svg {
+  height: 72px;
+}
+
 /* --- Mood heatmap: compact month grids, cells tinted by sentiment --- */
 .heatmap {
   display: flex;

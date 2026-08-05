@@ -9,8 +9,10 @@ import {
   loadStats,
   loadTopicEntries,
   loadEntry,
+  saveTopic,
 } from "./api.js";
 import { DayFlow } from "./lib/pages.jsx";
+import { MiniSentiment } from "./lib/spark.jsx";
 import { refreshConcepts } from "./lib/concepts.jsx";
 
 // The "Concepts" tab: an Obsidian-lite tagging layer with no traversal. A concept
@@ -171,10 +173,21 @@ function TopicList({ topics, onOpen }) {
 
 function TopicDetail({ topic, onBack }) {
   const [entries, setEntries] = useState(null); // null = loading
+  const [page, setPage] = useState("");
+  const [note, setNote] = useState("");
 
   useEffect(() => {
-    loadTopicEntries(topic).then(setEntries);
+    loadTopicEntries(topic).then(({ entries, page }) => {
+      setEntries(entries);
+      setPage(page || "");
+    });
   }, [topic]);
+
+  async function onSave() {
+    setNote("saving…");
+    const saved = await saveTopic(topic, page);
+    setNote(saved ? "saved" : "save failed");
+  }
 
   const list = entries || [];
   return (
@@ -188,11 +201,40 @@ function TopicDetail({ topic, onBack }) {
           {entries === null
             ? "loading…"
             : `${list.length} entr${list.length === 1 ? "y" : "ies"}`}
+          {note ? ` · ${note}` : ""}
         </span>
         <div className="page-rule" />
       </div>
 
+      {entries !== null && (
+        <section className="bin-group">
+          <h3>Sentiment over time</h3>
+          <MiniSentiment
+            points={list.map((e) => ({ date: e.date, sentiment: e.sentiment }))}
+          />
+        </section>
+      )}
+
+      <section className="concept-edit">
+        <label className="concept-field">
+          <span>Page notes</span>
+          <textarea
+            className="concept-page"
+            rows={6}
+            placeholder="your notes about this topic…"
+            value={page}
+            onChange={(e) => setPage(e.target.value)}
+          />
+        </label>
+        <div className="concept-actions">
+          <button className="btn-primary" onClick={onSave}>
+            Save
+          </button>
+        </div>
+      </section>
+
       <section className="bin-group">
+        <h3>Entries</h3>
         {entries === null ? (
           <p className="empty">Loading…</p>
         ) : list.length === 0 ? (
@@ -453,6 +495,13 @@ function ConceptDetail({ slug, onBack }) {
           </button>
           <button onClick={onRescan}>Rescan archive</button>
         </div>
+      </section>
+
+      <section className="bin-group">
+        <h3>Sentiment over time</h3>
+        <MiniSentiment
+          points={links.map((l) => ({ date: l.date, sentiment: l.sentiment }))}
+        />
       </section>
 
       <section className="bin-group">
