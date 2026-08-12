@@ -2914,6 +2914,104 @@ button.heatmap-cell:focus-visible {
   color: var(--ink);
 }
 
+/* --- Home arrival motion: the dashboard comes to life as the archive loads.
+   The FOCAL moment is the sentiment timeline drawing itself; the mood map, topic
+   bars, and revisit cards reveal in quiet supporting staggers. Every rule
+   animates FROM a start state TO the element's normal painted state, so the
+   default (no-JS / reduced-motion) render is the full, finished dashboard — the
+   animation only adds an entrance, never hides content. Shared ease-out matches
+   .page-turn. All disabled under prefers-reduced-motion at the bottom. --- */
+
+/* Focal: the line unspools left→right. pathLength="1" makes the dash length-
+   independent, so one rule draws any-length path. */
+.timeline-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0; /* final state (drawn) is the default */
+  animation: tl-draw 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes tl-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+/* The diverging area rises up to meet the line from the zero baseline. */
+.timeline-area {
+  transform-origin: center bottom;
+  animation: tl-area 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes tl-area {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6);
+  }
+}
+/* Dots pop in along the line, staggered by their index so they land ~with the
+   draw; capped by the small per-step delay. */
+.timeline-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tl-dot 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms + 120ms);
+}
+@keyframes tl-dot {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Supporting: mood-map cells settle in on a diagonal sweep (delay = row+col,
+   capped so a long archive never crawls). Only visible cells animate. */
+.heatmap-cell:not(.out) {
+  animation: hm-cell 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(min(var(--d, 0), 16) * 26ms);
+}
+@keyframes hm-cell {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+}
+
+/* Supporting: topic bars grow from zero to their value (scaleX — GPU-cheap, no
+   reflow), staggered per row. transform-origin left so they grow rightward. */
+.topic-bar-fill {
+  transform-origin: left center;
+  animation: tb-grow 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 45ms + 150ms);
+}
+@keyframes tb-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Supporting: revisit cards settle in (rise + fade), capped stagger. Replays on
+   criterion switch because .bundle-cards is keyed on `crit` (remounts). */
+.bundle-card {
+  animation: bc-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes bc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Motion is an entrance flourish, never a dependency: reduced-motion shows the
+   finished dashboard instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .timeline-line,
+  .timeline-area,
+  .timeline-dot,
+  .heatmap-cell:not(.out),
+  .topic-bar-fill,
+  .bundle-card {
+    animation: none;
+  }
+}
+
 @media (max-width: 620px) {
   .topic-bar-row {
     grid-template-columns: 90px 1fr auto;

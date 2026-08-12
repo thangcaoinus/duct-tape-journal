@@ -162,14 +162,19 @@ function SentimentTimeline({ days }) {
             y1={zeroY}
             y2={zeroY}
           />
-          {linePath && <path className="timeline-line" d={linePath} />}
-          {scored.map((p) => (
+          {/* pathLength="1" lets the CSS draw-on animation use a length-
+              independent stroke-dasharray:1 / dashoffset:1→0, no getTotalLength. */}
+          {linePath && (
+            <path className="timeline-line" d={linePath} pathLength="1" />
+          )}
+          {scored.map((p, k) => (
             <circle
               key={p.date}
               className={`timeline-dot ${p.s >= 0 ? "pos" : "neg"}`}
               cx={x(p.i)}
               cy={y(p.s)}
               r="3"
+              style={{ "--i": k }}
             >
               <title>
                 {niceDate(p.date)}: {p.s > 0 ? `+${p.s}` : p.s}
@@ -209,13 +214,15 @@ function Heatmap({ days, totals, onOpenDay }) {
           <div className="heatmap-month" key={`${ym.year}-${ym.month0}`}>
             <div className="heatmap-label">{monthLabel(ym)}</div>
             <div className="heatmap-grid">
-              {monthGrid(ym).map((cell) => {
+              {monthGrid(ym).map((cell, gi) => {
                 // Grid padding pulls in a few days from the neighboring month;
                 // never tint/click those here — an entry belongs to its own
                 // month's grid, not the one that happens to border it.
                 const d = cell.inMonth ? byDate.get(cell.date) : null;
                 const has = !!d;
-                const style = has ? sentimentTint(d.avgSentiment) : undefined;
+                // Diagonal settle delay = row + col (grid is 7-wide); CSS caps it.
+                const diag = Math.floor(gi / 7) + (gi % 7);
+                const style = { "--d": diag, ...(has ? sentimentTint(d.avgSentiment) : {}) };
                 const cls = [
                   "heatmap-cell",
                   cell.inMonth ? "" : "out",
@@ -241,7 +248,7 @@ function Heatmap({ days, totals, onOpenDay }) {
                     />
                   );
                 }
-                return <div key={cell.date} className={cls} />;
+                return <div key={cell.date} className={cls} style={style} />;
               })}
             </div>
           </div>
@@ -265,8 +272,8 @@ function TopicBars({ topics }) {
   return (
     <Section title="Topics" sub="what you write about, and how it feels">
       <ul className="topic-bars">
-        {topics.map((t) => (
-          <li key={t.topic} className="topic-bar-row">
+        {topics.map((t, i) => (
+          <li key={t.topic} className="topic-bar-row" style={{ "--i": i }}>
             <span className="topic-bar-name">#{t.topic}</span>
             <span className="topic-bar-track">
               <span
@@ -349,11 +356,14 @@ function Bundle({ days, onOpenDay }) {
       ) : cards.length === 0 ? (
         <p className="home-note">Nothing to show for this pick.</p>
       ) : (
-        <div className="bundle-cards">
-          {cards.map((c) => (
+        // key on `crit` so switching criteria remounts the cards and replays the
+        // staggered entrance (a CSS animation on unchanged nodes won't re-fire).
+        <div className="bundle-cards" key={crit}>
+          {cards.map((c, i) => (
             <button
               key={`${c.date}-${c.entry}`}
               className="bundle-card"
+              style={{ "--i": i }}
               onClick={() => onOpenDay(c.date)}
             >
               <span className="bundle-card-date">{niceDate(c.date)}</span>
