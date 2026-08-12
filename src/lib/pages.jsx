@@ -383,9 +383,24 @@ export function Page({ page, entriesFor, blank, showDateHead }) {
           <p className="empty">…</p>
         )}
       </div>
-      <div className="page-foot">{page.date}</div>
+      {/* Footer dateline in the book's own voice (a friendly local date), not a
+          raw ISO stamp. Absolute in the reserved --foot-h strip — no geometry
+          change. */}
+      <div className="page-foot">{formatDateFoot(page.date)}</div>
     </div>
   );
+}
+
+// A quiet footer dateline like "May 4, 2026" (LOCAL-parsed, no UTC roll). The
+// longhand weekday form lives in the top chapter header; the footer stays short.
+function formatDateFoot(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 // A friendly date header like "Monday, July 28, 2026" from a YYYY-MM-DD string.

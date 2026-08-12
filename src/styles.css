@@ -746,6 +746,36 @@ button.cal-cell:focus-visible,
   font-family: var(--font-serif);
   font-style: italic;
 }
+
+/* The reader toolbar sits nearer the book it drives (less floating chrome). */
+.reader-toolbar {
+  margin-bottom: var(--s-4);
+}
+/* Reader toolbar: the navigation group (jump + Prev/Next) sits together as one
+   unit of book furniture; the running-head status floats to the far side. */
+.reader-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+/* Page-turn buttons pair a drawn chevron with its label in the paper-chip idiom
+   (they already inherit .btn-secondary). The chevron leads Prev / trails Next. */
+.reader-turn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.reader-chevron {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
 /* Status text that sits in a toolbar row should stay on one line at the end. */
 .toolbar .status {
   margin-left: auto;
@@ -1227,33 +1257,77 @@ button.cal-cell:focus-visible,
   height: var(--page-h);
 }
 
+/* The center binding: a STYLISTIC twin-hairline seam (a realistic soft-shadow
+   gutter read as a muddy smear). Two crisp thin lines with a small gap, like a
+   sewn/ledger binding — flat and graphic, in the same quiet hairline family as
+   the page rules. Purely visual overlay centered on the spine, below the turning
+   leaf (z-index:3) and above the static pages. Geometry-neutral (no layout box). */
+.book::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 9px;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+  /* Hard stops (no fade) so each line has a defined edge: line · gap · line. */
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    transparent 1px,
+    var(--line) 1px,
+    var(--line) 2px,
+    transparent 2px,
+    transparent 7px,
+    var(--line) 7px,
+    var(--line) 8px,
+    transparent 8px
+  );
+}
+
 .book.single {
   width: var(--page-w);
 }
+/* Single-page mode has no spine — suppress the binding seam. */
+.book.single::before {
+  display: none;
+}
 
-/* One physical page. */
+/* One physical page — a sheet of real thickness resting on the desk: a soft cast
+   shadow below/out, plus a faint top-inner highlight so the stock reads as paper,
+   not a flat rectangle. (Single-page mode gets both rounded sides + this depth.) */
 .page {
   width: var(--page-w);
   height: var(--page-h);
+  border-radius: 6px;
   background: var(--book-paper);
   border: 1px solid var(--book-paper-edge);
-  box-shadow: 0 6px 20px rgba(58, 45, 24, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 26px -12px rgba(58, 45, 24, 0.22),
+    0 2px 6px rgba(58, 45, 24, 0.08);
   overflow: hidden;
   position: relative;
 }
 
-/* Left page of a spread curls its shadow toward the spine, and vice versa. */
+/* In a spread the inner (spine) corners are square so the two halves meet as one
+   bound block; the outer corners keep the sheet radius. The binding read is
+   carried by the flat twin-hairline seam (.book::before) — NOT a soft inner
+   shadow, which smeared the center. Each half keeps only the honest depth: the
+   faint top highlight + the outer cast shadow. */
+.book-side.left .page,
+.book-side.right .page {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 26px -12px rgba(58, 45, 24, 0.2);
+}
 .book-side.left .page {
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-  box-shadow: inset -10px 0 18px -14px rgba(0, 0, 0, 0.25),
-    0 6px 20px rgba(0, 0, 0, 0.08);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 .book-side.right .page {
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
-  box-shadow: inset 10px 0 18px -14px rgba(0, 0, 0, 0.25),
-    0 6px 20px rgba(0, 0, 0, 0.08);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .page-blank {
@@ -1282,6 +1356,83 @@ button.cal-cell:focus-visible,
 .measure-host .day-flow .prose,
 .measure-host .day-flow .ProseMirror {
   min-height: 0;
+}
+
+/* --- Reading typography for the book page. THE core craft fix: the read flow
+   had no type rule and fell to a cramped 13px default; a diary you sit and read
+   deserves a real book voice. Scoped to the VISIBLE page AND the off-screen
+   measure host together, so measured breaks == rendered breaks (pagination stays
+   honest — the paginator reads this exact type). Book stock ⇒ solid ink, serif,
+   a relaxed leading tuned to the ~48ch column. --- */
+.page .day-flow .ProseMirror,
+.measure-host .day-flow .ProseMirror {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  line-height: 1.72;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.page .day-flow .ProseMirror p,
+.measure-host .day-flow .ProseMirror p {
+  margin: 0 0 0.72em;
+}
+/* Structure inside an entry reads as composed book prose, not raw ProseMirror
+   defaults. Modest scale — this is a reading page, not a headline. */
+.page .day-flow .ProseMirror h1,
+.page .day-flow .ProseMirror h2,
+.page .day-flow .ProseMirror h3,
+.measure-host .day-flow .ProseMirror h1,
+.measure-host .day-flow .ProseMirror h2,
+.measure-host .day-flow .ProseMirror h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  margin: 1.1em 0 0.4em;
+  letter-spacing: -0.01em;
+}
+.page .day-flow .ProseMirror h1,
+.measure-host .day-flow .ProseMirror h1 {
+  font-size: 1.4em;
+}
+.page .day-flow .ProseMirror h2,
+.measure-host .day-flow .ProseMirror h2 {
+  font-size: 1.22em;
+}
+.page .day-flow .ProseMirror h3,
+.measure-host .day-flow .ProseMirror h3 {
+  font-size: 1.08em;
+}
+/* First block flush to the top margin — no stray leading space above line 1. */
+.page .day-flow .ProseMirror > :first-child,
+.measure-host .day-flow .ProseMirror > :first-child {
+  margin-top: 0;
+}
+.page .day-flow .ProseMirror ul,
+.page .day-flow .ProseMirror ol,
+.measure-host .day-flow .ProseMirror ul,
+.measure-host .day-flow .ProseMirror ol {
+  margin: 0 0 0.72em;
+  padding-left: 1.4em;
+}
+.page .day-flow .ProseMirror li,
+.measure-host .day-flow .ProseMirror li {
+  margin: 0.15em 0;
+}
+.page .day-flow .ProseMirror blockquote,
+.measure-host .day-flow .ProseMirror blockquote {
+  margin: 0.8em 0;
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--book-paper-edge);
+  color: var(--muted);
+  font-style: italic;
+}
+.page .day-flow .ProseMirror code,
+.measure-host .day-flow .ProseMirror code {
+  font-size: 0.86em;
+  background: rgba(58, 45, 24, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
 }
 
 /* Date "chapter" header for the first page of a day in the Reader. Lives in the
@@ -1319,7 +1470,11 @@ button.cal-cell:focus-visible,
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  font-size: 11px;
+  /* A quiet running-foot dateline in the book's serif voice — not a bare stamp. */
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0.01em;
   color: var(--muted);
   border-top: 1px solid var(--book-paper-edge);
   padding-top: 4px;

@@ -17,6 +17,21 @@ const RIFFLE_CAP = 16;
 const RIFFLE_TOTAL_MS = 900;
 const MIN_FLIP_MS = 70;
 
+// Drawn chevron icon (matches the app's single-stroke SVG convention — rail
+// icons, bubble-menu icons — never an ASCII glyph). `dir` picks left/right.
+function Chevron({ dir }) {
+  return (
+    <svg
+      className="reader-chevron"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+    </svg>
+  );
+}
+
 // Label a day-picker option compactly: "Jul 21, 2026 · 2" (date parsed LOCAL, no
 // UTC roll). Short so the picker reads as a tidy chip, not a sentence; the count
 // still shows which days hold how much.
@@ -283,6 +298,26 @@ export default function Reader({ active = true, dataVersion = 0 }) {
     setTimeout(commit, FLIP_MS + 60);
   }
 
+  // Keyboard paging: ←/→ turn the page while Read is the visible tab. Bound each
+  // render (no deps) so it closes over the current pageIndex/flip — navigate()
+  // already guards mid-flip and clamps at the ends. Skipped when the Reader is
+  // hidden off-screen (`active`) so it can't steal arrows from another tab, and
+  // when focus is in the day-jump/select/input so those keep their native arrows.
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const el = document.activeElement;
+      const tag = el?.tagName;
+      if (tag === "SELECT" || tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      navigate(e.key === "ArrowRight" ? "fwd" : "back");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   // Riffle to a far page: a chained sequence of single turns that reads like
   // flipping through the pages in between — proportional to the distance, capped
   // at RIFFLE_CAP turns and speeding up as the count grows. `opts.from` overrides
@@ -378,39 +413,47 @@ export default function Reader({ active = true, dataVersion = 0 }) {
         <div className="page-rule" />
       </div>
 
-      <div className="toolbar">
-        {/* Jump to a day. A native date calendar can't show WHICH days have
-            entries, so this lists only real diary days, each with its count. */}
-        <select
-          className="day-jump"
-          value={curDate || ""}
-          onChange={(e) => goToDate(e.target.value)}
-          disabled={days.length === 0 || !!flip}
-          aria-label="Jump to a day"
-        >
-          {!curDate && <option value="">Jump to a day…</option>}
-          {days.map((d) => (
-            <option key={d} value={d}>
-              {formatDayOption(d, dayCounts.get(d))}
-            </option>
-          ))}
-        </select>
-        <button
-          className="btn-secondary"
-          onClick={() => navigate("back")}
-          disabled={atStart || !!flip}
-        >
-          ◂ Prev
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={() => navigate("fwd")}
-          disabled={atEnd || !!flip}
-        >
-          Next ▸
-        </button>
-        {/* Just the reading position — the day picker already names the current
-            day, so the raw date here was redundant chrome. */}
+      <div className="toolbar reader-toolbar">
+        {/* Navigation group: jump-to-day + Prev/Next, kept together as one unit
+            of book furniture. */}
+        <div className="reader-nav">
+          {/* Jump to a day. A native date calendar can't show WHICH days have
+              entries, so this lists only real diary days, each with its count. */}
+          <select
+            className="day-jump"
+            value={curDate || ""}
+            onChange={(e) => goToDate(e.target.value)}
+            disabled={days.length === 0 || !!flip}
+            aria-label="Jump to a day"
+          >
+            {!curDate && <option value="">Jump to a day…</option>}
+            {days.map((d) => (
+              <option key={d} value={d}>
+                {formatDayOption(d, dayCounts.get(d))}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn-secondary reader-turn"
+            onClick={() => navigate("back")}
+            disabled={atStart || !!flip}
+            aria-label="Previous page"
+          >
+            <Chevron dir="left" />
+            <span>Prev</span>
+          </button>
+          <button
+            className="btn-secondary reader-turn"
+            onClick={() => navigate("fwd")}
+            disabled={atEnd || !!flip}
+            aria-label="Next page"
+          >
+            <span>Next</span>
+            <Chevron dir="right" />
+          </button>
+        </div>
+        {/* Running-head reading position, pushed to its own side. The day picker
+            already names the current day, so the raw date here was redundant. */}
         <span className="status">
           {total === 0 ? "no entries" : `page ${pageIndex + 1} of ${total}`}
         </span>

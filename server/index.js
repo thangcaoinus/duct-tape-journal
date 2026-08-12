@@ -60,6 +60,12 @@ function parseFrontmatter(raw) {
     const val = m[2];
     meta[key] = /^-?\d+$/.test(val) ? Number(val) : val;
   }
+  // `topic` is ALWAYS a string, even when it's all digits ("2024", "1"). The
+  // generic digit→Number coercion above is correct for numeric fields like
+  // `sentiment`, but a numeric topic must stay a string or it breaks string-only
+  // handling downstream (e.g. `topic.localeCompare` in /api/stats). Coerce it
+  // back at the boundary so the rest of the code always sees a string topic.
+  if (typeof meta.topic === "number") meta.topic = String(meta.topic);
   return { meta, body };
 }
 
@@ -684,7 +690,9 @@ app.get("/api/stats", async (req, res) => {
       count: t.count,
       avgSentiment: t.scored ? Math.round(t.sum / t.scored) : null,
     }))
-    .sort((a, b) => b.count - a.count || a.topic.localeCompare(b.topic));
+    .sort(
+      (a, b) => b.count - a.count || String(a.topic).localeCompare(String(b.topic))
+    );
   res.json({
     ok: true,
     stats: {
