@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadStats, loadDay } from "./api.js";
 import { monthGrid, monthLabel, today } from "./lib/date.js";
+import { sentimentTint } from "./lib/sentiment.js";
 import DayOverlay from "./DayOverlay.jsx";
 
 // The Home dashboard: a calm overview of the whole diary, derived from one
@@ -209,7 +210,10 @@ function Heatmap({ days, totals, onOpenDay }) {
             <div className="heatmap-label">{monthLabel(ym)}</div>
             <div className="heatmap-grid">
               {monthGrid(ym).map((cell) => {
-                const d = byDate.get(cell.date);
+                // Grid padding pulls in a few days from the neighboring month;
+                // never tint/click those here — an entry belongs to its own
+                // month's grid, not the one that happens to border it.
+                const d = cell.inMonth ? byDate.get(cell.date) : null;
                 const has = !!d;
                 const style = has ? sentimentTint(d.avgSentiment) : undefined;
                 const cls = [
@@ -364,17 +368,6 @@ function Bundle({ days, onOpenDay }) {
 }
 
 // ---------- helpers ----------
-
-// Tint style for a -100..100 sentiment: sage for positive, rust for negative,
-// alpha scaled by magnitude so a mild day is faint and a strong day saturated.
-// Returns inline style using the app's accent/danger hues (kept in sync here).
-function sentimentTint(s) {
-  if (s == null) return { background: "var(--paper-shade)" };
-  const mag = Math.min(1, Math.abs(s) / 100);
-  const alpha = 0.25 + mag * 0.55;
-  const rgb = s >= 0 ? "91, 122, 107" : "179, 84, 47"; // --accent / --danger
-  return { background: `rgba(${rgb}, ${alpha.toFixed(2)})` };
-}
 
 // Choose the bundle's dates (max 4) for a criterion. Uses whole-day averages.
 function pickDates(days, crit) {

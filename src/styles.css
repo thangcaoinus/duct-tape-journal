@@ -214,6 +214,7 @@ body {
 /* The content region: a centered column at a single unified width. */
 .app-content {
   min-width: 0; /* let inner grids shrink instead of overflowing the column */
+  min-height: 0; /* let a fit-to-height tab (calendar) flex-shrink inside the row */
   overflow-x: clip; /* the off-margin drawer must never scroll the page */
 }
 .app {
@@ -252,6 +253,26 @@ body {
    column keeps its width and the drawer (320px) sits beside it in-flow. */
 .app.write-open {
   max-width: calc(var(--content-max) + 320px + var(--s-5));
+}
+
+/* Calendar is a "fit one window" tab: the month spread fills the content row's
+   height instead of growing the page. Pass a definite height down the chain
+   (.app-content is grid row 2 = 1fr, so it already has one) and let the pane
+   flex within it. Scoped to the calendar so Home/Write keep normal page flow. */
+.app.calendar-mode {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Trim the tall page padding so the grid claims the vertical room it needs. */
+  padding-top: var(--s-5);
+  padding-bottom: var(--s-5);
+}
+.app.calendar-mode > .page-turn {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Wraps the book so a phone can shrink the whole leaf to fit the viewport with a
@@ -1481,21 +1502,56 @@ button.cal-cell:focus-visible,
 }
 
 /* --- Calendar view --- */
+/* The pane is a fixed-height flex column: everything above the month body is
+   fixed-height chrome, and the grid body flex-grows to fill the leftover height
+   so the whole month fits one window (no page scroll). Height arrives from the
+   .app.calendar-mode chain above. */
+.calendar-pane {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.calendar-pane > .page-header,
+.calendar-head,
+.cal-month-sub,
+.calendar-pane > .cal-grid-head {
+  flex: 0 0 auto;
+}
+
 .calendar-head {
+  position: relative; /* anchor the Today button out of the centered flow */
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--s-5);
   margin: 0 0 var(--s-5);
 }
+/* The month title doubles as the picker trigger — a quiet serif button, not a
+   form control. */
 .cal-title {
   font-family: var(--font-serif);
   font-size: var(--t-title);
   font-weight: 600;
   margin: 0;
-  min-width: 220px;
+  /* Fixed width — matched by .cal-picker — so swapping title↔picker never
+     changes the middle slot's size and the ‹ › arrows stay put. */
+  width: 260px;
   text-align: center;
   letter-spacing: -0.01em;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px var(--s-2);
+  border-radius: var(--r-sm);
+  transition: background 0.12s ease;
+}
+.cal-title:hover:not(:disabled) {
+  background: var(--paper-shade);
+}
+.cal-title:disabled {
+  cursor: default;
 }
 .cal-nav {
   font-size: 22px;
@@ -1504,11 +1560,94 @@ button.cal-cell:focus-visible,
   height: 40px;
   padding: 0;
 }
+/* Pinned to the right of the head, OUT of the centered flex flow, so its
+   appearing/disappearing (it only shows off the current month) never re-centers
+   the ‹ title › trio and shifts the nav arrows. */
+.cal-today-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+/* Month/year quick-jump: two paper-chip selects in place of the serif title.
+   Same fixed width as .cal-title so the ‹ › arrows never shift on expand. */
+.cal-picker {
+  display: flex;
+  gap: var(--s-2);
+  width: 260px;
+  justify-content: center;
+}
+.cal-picker select {
+  font-family: var(--font-serif);
+  font-size: var(--t-body);
+  padding: 4px var(--s-3);
+}
+
+/* A quiet standfirst under the head: this month's entry count + avg mood.
+   Italic serif, matching the .page-sub voice — a dateline, not a stat tile. */
+.cal-month-sub {
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--t-small);
+  color: var(--muted);
+  margin: 0 0 var(--s-4);
+}
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: var(--s-2);
+}
+/* The month body flex-grows to fill the pane's leftover height, and its six
+   week-rows share that height equally (repeat(6, 1fr)) — so the whole month
+   always fits one window at any viewport height instead of forcing a scroll. */
+.cal-grid-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: repeat(6, 1fr);
+}
+/* The weekday header is a quiet ruled band that reads as one ledger with the
+   grid below it: a hairline under-rule (the same warm edge as .page-rule) ties
+   the column labels to the month body instead of floating above it. */
+.cal-grid-head {
+  margin-bottom: var(--s-2);
+  padding-bottom: var(--s-1);
+  border-bottom: 1px solid var(--paper-edge);
+}
+
+/* The day body remounts (keyed on the month) so a change replays this slide —
+   the calendar's single authored motion moment, mirroring .page-turn's curve.
+   From an already-visible default; the direction picks which side it enters. */
+@keyframes cal-grid-enter {
+  from {
+    opacity: 0.5;
+    transform: translateX(var(--cal-slide, 0)) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+.cal-grid-enter {
+  animation: cal-grid-enter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.cal-grid-enter.dir-fwd {
+  --cal-slide: 22px;
+}
+.cal-grid-enter.dir-back {
+  --cal-slide: -22px;
+}
+.cal-grid-enter.dir-snap {
+  --cal-slide: 0px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cal-grid-enter {
+    animation: none;
+  }
 }
 
 .cal-weekday {
@@ -1521,16 +1660,21 @@ button.cal-cell:focus-visible,
   padding-bottom: var(--s-2);
 }
 
-/* Day cells are small paper leaves resting on the desk grid. */
+/* Day cells are small paper leaves resting on the desk grid. They size to their
+   grid track (repeat(6,1fr) height) so the month fits one window; a small floor
+   keeps them tappable on a short window (page may scroll only in that fallback). */
 .cal-cell {
   position: relative;
-  aspect-ratio: 1 / 1;
-  min-height: 96px;
+  min-height: 58px;
   min-width: 0; /* let the 1fr track shrink; content (card-fan) must not overflow */
   border: 1px solid var(--paper-edge);
   border-radius: var(--r-md);
-  background: var(--paper);
-  box-shadow: var(--shadow-sm);
+  /* Empty in-month days are quiet ruled squares recessed into the ledger — a
+     flatter, cooler paper than a written leaf, no lift. Entry days (.cal-has)
+     override this into a bright raised sheet, so the squint test cleanly
+     separates "has something" from "blank". */
+  background: var(--paper-shade);
+  box-shadow: none;
   padding: var(--s-2);
   font: inherit;
   text-align: left;
@@ -1561,12 +1705,55 @@ button.cal-cell:hover {
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--accent);
 }
 .cal-daynum {
+  position: absolute; /* pinned to the corner so siblings never shift it */
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: 1; /* sit above the mood spine */
   font-size: var(--t-small);
   font-weight: 600;
   color: var(--muted);
 }
 .cal-today .cal-daynum {
   color: var(--accent);
+}
+
+/* Entry days are bright raised paper leaves — a written sheet resting on the
+   recessed ledger. The brighter stock + real shadow makes them read as the
+   "something happened here" cells at a glance (squint test), distinct from the
+   quiet empty squares and from the hover lift. */
+.cal-has {
+  background: var(--paper);
+  box-shadow: var(--shadow-md);
+}
+
+/* Mood spine: a slim stripe down the cell's left edge, colored by the day's
+   average sentiment (sage↔rust; neutral muted when unscored). Flush to the edge
+   (clipped by the cell's rounded overflow) so it reads as an inked page edge and
+   never crowds the corner day number. An absolute overlay, NOT a border-left, so
+   it never shifts the box and coexists with the today ring. */
+.cal-mood {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--muted);
+}
+
+/* True entry count when the fan caps out (>3) — a small serif corner chip. */
+.cal-count {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  font-family: var(--font-serif);
+  font-variant: small-caps;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--paper-shade);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-sm);
+  padding: 2px 5px;
 }
 
 /* Fanned blank page-cards signaling entry count. */
@@ -1599,6 +1786,9 @@ button.cal-cell:hover {
     width: 20px;
     height: 28px;
   }
+  .cal-mood {
+    width: 3px;
+  }
 }
 
 /* Phone: 7 columns are unavoidably narrow, so tighten the grid to fit and let
@@ -1620,6 +1810,14 @@ button.cal-cell:hover {
   .cal-daynum {
     font-size: 12px;
   }
+  /* Cells are ~46px wide here — the count chip won't fit; the fan + spine carry
+     the signal and the hover title still names the exact count. */
+  .cal-count {
+    display: none;
+  }
+  .cal-mood {
+    width: 3px;
+  }
   /* Shrink and lift the entry fan so it fits inside a ~46px-wide cell. */
   .card-fan {
     bottom: 6px;
@@ -1629,6 +1827,36 @@ button.cal-cell:hover {
     width: 12px;
     height: 18px;
     margin: 0 -4px;
+  }
+}
+
+/* Short viewport: the calendar is a fit-to-window tab, so when vertical room is
+   scarce, compress its chrome (header, summary, gaps) rather than let the last
+   week-row spill past the fold. Height-keyed so the desktop look is untouched on
+   normal screens; the grid keeps its repeat(6,1fr) rows and simply gets more of
+   the reclaimed height. */
+@media (max-height: 760px) {
+  .app.calendar-mode {
+    padding-top: var(--s-3);
+    padding-bottom: var(--s-3);
+  }
+  .calendar-mode .page-header {
+    margin-bottom: var(--s-3);
+  }
+  .calendar-mode .page-header h2 {
+    font-size: var(--t-title);
+  }
+  .calendar-mode .page-header .page-rule {
+    margin-top: var(--s-2);
+  }
+  .calendar-mode .calendar-head {
+    margin-bottom: var(--s-3);
+  }
+  .calendar-mode .cal-month-sub {
+    margin-bottom: var(--s-3);
+  }
+  .calendar-mode .cal-cell {
+    min-height: 44px;
   }
 }
 
@@ -1658,6 +1886,33 @@ button.cal-cell:hover {
   flex-direction: column;
   align-items: center;
   gap: var(--s-4);
+  /* Never exceed the viewport — the stage centers within .overlay and its book
+     area is scaled to fit, so the modal + controls always sit on one screen. */
+  max-height: 100dvh;
+}
+
+/* Height-aware flow-page scaler: shrink the 620px reading page (and only the
+   VISIBLE page — the hidden measure host is untouched) so the page plus the
+   overlay chrome fits the viewport. --overlay-chrome budgets header + controls +
+   gaps; the scale is the height fit capped at 1 (never upscale). Width-
+   independent so it also fixes wide-but-short laptops, not just phones. */
+.book-scaler--overlay.book-scaler--single {
+  --overlay-chrome: 200px; /* header + Prev/Next bar + the stage gaps + margin */
+  /* Fit BOTH axes: the smaller of the height budget and the width budget
+     (92vw leaves the backdrop margin), capped at 1 so it never upscales. This
+     single rule replaces the width-only phone scale for the overlay. */
+  --book-scale: min(
+    1,
+    calc((100dvh - var(--overlay-chrome)) / var(--page-h)),
+    calc((92vw) / var(--page-w))
+  );
+  width: calc(var(--page-w) * var(--book-scale));
+  height: calc(var(--page-h) * var(--book-scale));
+  margin: 0 auto;
+}
+.book-scaler--overlay .book {
+  transform: scale(var(--book-scale));
+  transform-origin: top left;
 }
 .overlay-close {
   position: absolute;
@@ -1750,14 +2005,19 @@ button.cal-cell:hover {
 /* --- Overlay "by entry" mode: entry cards + image side panel --- */
 .overlay-stage.by-entry {
   width: min(92vw, 980px);
-  max-height: 88vh;
+  /* dvh (not vh) so mobile browser chrome can't push the stage past the screen;
+     the inner heights flow from this cap so a short laptop never overflows. */
+  max-height: 92dvh;
 }
 .overlay-byentry {
   display: flex;
   gap: var(--s-4);
   align-items: stretch;
   width: 100%;
-  height: 78vh;
+  /* Fill the capped stage minus the header row; the entry card + image panel
+     each scroll internally, so the modal itself stays one screen. */
+  height: calc(92dvh - 64px);
+  max-height: calc(92dvh - 64px);
   overflow: hidden;
 }
 .overlay-byentry .entry-column {

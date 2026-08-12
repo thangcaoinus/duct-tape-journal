@@ -155,7 +155,7 @@ export default function App() {
         <main
           className={`app ${wide ? "app-wide" : ""} ${
             mode === "write" && writeOpen ? "write-open" : ""
-          }`}
+          } ${mode === "calendar" ? "calendar-mode" : ""}`}
         >
           {/* The one authored motion moment: switching tabs settles the fresh
               page up+in, like turning to a new leaf. Keyed on `mode` so React

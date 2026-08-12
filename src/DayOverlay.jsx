@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Page, useDayPages, DayFlow } from "./lib/pages.jsx";
 import { deleteEntry } from "./api.js";
 import Resources from "./Resources.jsx";
@@ -49,6 +50,36 @@ export default function DayOverlay({ date, onClose, onChanged }) {
     typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
   );
+
+  // Lock the background scroll while the overlay is open, so the underlying tab
+  // (Home/Calendar) stays exactly where it was and can't scroll behind the
+  // fixed backdrop. Simply hiding overflow clamps the page to the top; instead
+  // we freeze the body at its current scroll offset (position:fixed + top:-y),
+  // then restore both the styles AND the exact scroll position on close — so the
+  // tab is left precisely where it was.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    return () => {
+      Object.assign(body.style, prev);
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
 
   // Reset when the day changes.
   useEffect(() => {
@@ -153,7 +184,12 @@ export default function DayOverlay({ date, onClose, onChanged }) {
   // Guard against a transient out-of-range index (defensive; delete keeps it valid).
   const curEntry = liveEntries[Math.min(entryIdx, liveEntries.length - 1)];
 
-  return (
+  // Portal to <body> so the fixed backdrop escapes any transformed ancestor.
+  // The overlay renders inside a tab pane wrapped in `.page-turn`, whose
+  // animation applies a `transform` that would otherwise become the containing
+  // block for `position: fixed` — pinning the overlay to the (tall) page instead
+  // of the viewport and letting it scroll with the tab. The portal lifts it out.
+  return createPortal(
     <div className="overlay" onClick={onClose}>
       {/* Stop propagation so clicks on the card/controls don't close. */}
       <div
@@ -185,8 +221,10 @@ export default function DayOverlay({ date, onClose, onChanged }) {
 
         {view === "flow" ? (
           <>
-            {/* .book-scaler shrinks the flow page to fit a phone (visual only). */}
-            <div className="book-scaler book-scaler--single">
+            {/* .book-scaler shrinks the flow page to fit — by width on a phone,
+                and by height here so the whole page + chrome fits one screen
+                (visual only; the hidden measure host stays at true page size). */}
+            <div className="book-scaler book-scaler--single book-scaler--overlay">
             <div className="book single overlay-book">
               {entries && cur ? (
                 <div
@@ -297,6 +335,7 @@ export default function DayOverlay({ date, onClose, onChanged }) {
 
       {/* Hidden measuring pass owned by useDayPages (flow pagination). */}
       {measureHost}
-    </div>
+    </div>,
+    document.body
   );
 }

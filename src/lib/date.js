@@ -23,7 +23,7 @@ export function shiftMonth({ year, month0 }, delta) {
 }
 
 // A month's title, e.g. "July 2026".
-const MONTHS = [
+export const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
