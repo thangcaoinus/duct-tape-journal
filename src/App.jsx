@@ -65,9 +65,9 @@ function RailIcon({ name }) {
 }
 
 export default function App() {
-  // Boots to the Home dashboard (an overview reads better as a landing than a
-  // blank editor). The rail flips modes.
-  const [mode, setMode] = useState("home");
+  // Boots to Write — the diary opens ready to write, not on the dashboard. The
+  // rail flips modes.
+  const [mode, setMode] = useState("write");
 
   // The Reader is expensive to build (it loads every day and measures pagination
   // off-screen). We keep it MOUNTED across tab switches so it renders + measures
