@@ -1,0 +1,12 @@
+{
+  "name": "deadline",
+  "keywords": ["ship"],
+  "page": "The recurring one. A thread that runs through the archive: announce a date, dread it, ship a little late, discover the dread was bigger than the thing. Kept as a concept to watch the pattern repeat.",
+  "links": [
+    { "date": "2026-05-04", "entry": "entry-2.md", "matched": "ship", "at": "2026-05-04T18:20:00.000Z" },
+    { "date": "2026-05-19", "entry": "entry-1.md", "matched": "deadline", "at": "2026-05-19T09:10:00.000Z" },
+    { "date": "2026-06-11", "entry": "entry-1.md", "matched": "ship", "at": "2026-06-11T08:30:00.000Z" }
+  ],
+  "createdAt": "2026-05-04T18:20:00.000Z",
+  "updatedAt": "2026-06-11T08:30:00.000Z"
+}

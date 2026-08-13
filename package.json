@@ -7,8 +7,16 @@
     "dev": "vite --open",
     "dev:host": "vite --host 0.0.0.0",
     "server": "node server/index.js",
+    "server:demo": "cross-env DIARY_DIR=diary.demo node server/index.js",
     "start": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev\"",
-    "start:host": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev:host\""
+    "start:host": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:dev:host\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed:demo": "node scripts/seed.mjs",
+    "demo": "npm run seed:demo && concurrently -n server,web -c blue,green \"npm:server:demo\" \"npm:dev\"",
+    "demo:clean": "node -e \"require('fs').rmSync('diary.demo',{recursive:true,force:true});console.log('✓ removed diary.demo/')\"",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -25,9 +33,19 @@
     "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@vitejs/plugin-react": "^6.0.4",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
     "playwright": "^1.62.1",
-    "vite": "^8.1.5"
+    "prettier": "^3.9.6",
+    "supertest": "^7.2.2",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   }
 }

@@ -7,7 +7,10 @@ import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
-const DIARY = path.join(ROOT, "diary");
+// The archive root. Overridable via DIARY_DIR so tests can point the whole tree
+// at a throwaway temp dir (every other path below derives from DIARY). In normal
+// use it's the gitignored diary/ at the repo root.
+const DIARY = process.env.DIARY_DIR || path.join(ROOT, "diary");
 const DRAFTS = path.join(DIARY, ".drafts");
 const TRASH = path.join(DIARY, ".trash");
 const META = path.join(DIARY, ".meta");
@@ -52,7 +55,16 @@ function parseFrontmatter(raw) {
   const end = raw.indexOf("\n---\n", 4);
   if (end === -1) return { meta: {}, body: raw };
   const block = raw.slice(4, end);
-  const body = raw.slice(end + 5); // past the closing "\n---\n"
+  // Body starts past the closing "\n---\n". serializeFrontmatter always writes a
+  // single blank-line separator after the block ("---\n\n<body>"), so consume ONE
+  // trailing newline here to make parse ↔ serialize an exact fixed point. Without
+  // this, every parse→serialize round trip (e.g. a Tools backfill/rescore, which
+  // re-serialises the parsed pair) prepended another blank line to the body
+  // forever. With it, a round trip reproduces the same bytes — including for
+  // legacy entries that already carry extra blank lines: their body (blanks and
+  // all) is preserved verbatim and no longer grows. Prose is never rewritten.
+  let body = raw.slice(end + 5);
+  if (body.startsWith("\n")) body = body.slice(1);
   const meta = {};
   for (const line of block.split("\n")) {
     const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
@@ -1159,6 +1171,25 @@ app.get("/api/concepts/:slug/entry/:date/:name", guardDate, async (req, res) => 
 // --- Static serve of diary/ so images display ---
 app.use("/files", express.static(DIARY));
 
-app.listen(PORT, () => {
-  console.log(`Duct-Tape Diary server on http://localhost:${PORT}`);
-});
+// Only bind a port when run as a real server. Under test the suite imports `app`
+// and drives it with supertest (no open socket), so the listener is skipped.
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`Duct-Tape Diary server on http://localhost:${PORT}`);
+  });
+}
+
+// Exported for tests: the Express app (driven via supertest) plus the pure,
+// side-effect-free helpers whose behavior encodes product invariants
+// (frontmatter round-trip, whole-word body-only concept matching, append-only
+// dedupe). Importing this module never starts a server (see the guard above).
+export {
+  app,
+  parseFrontmatter,
+  serializeFrontmatter,
+  normTopic,
+  matchTerms,
+  entryMatches,
+  addLink,
+  addTopicLink,
+};

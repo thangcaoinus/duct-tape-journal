@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Lint is advisory — surfaces warnings without failing the build (see
+      # eslint.config.js). Remove `continue-on-error` to make it a hard gate.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      # The safety-spine + helper tests. Hermetic by construction: TRANSFORMERS_OFFLINE
+      # forces the sentiment model into its offline path (no hub download), and the
+      # tests assert the graceful null-sentiment contract — so a green run needs no
+      # network and no cached model.
+      - name: Test
+        run: npm test
+        env:
+          TRANSFORMERS_OFFLINE: "1"
+          HF_HUB_OFFLINE: "1"
+
+      - name: Build
+        run: npx vite build
