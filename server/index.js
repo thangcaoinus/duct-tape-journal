@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -794,11 +795,27 @@ app.post("/api/resource/:date", guardDate, async (req, res) => {
     return res.status(400).json({ ok: false, error: "missing dataUrl" });
   }
   const base64 = dataUrl.split(",")[1] || "";
-  const safeExt = String(ext || "png").replace(/[^a-z0-9]/gi, "").toLowerCase() || "png";
+  let safeExt = String(ext || "png").replace(/[^a-z0-9]/gi, "").toLowerCase() || "png";
+  let buf = Buffer.from(base64, "base64");
+
+  // iPhone photos arrive as HEIC/HEIF, which no browser <img> can render — the
+  // upload would "succeed" but the thumbnail (and the inserted image) would be a
+  // broken box. Transcode those to JPEG at the boundary so every stored image is
+  // web-renderable. Best-effort: if the decode fails we keep the original bytes
+  // rather than lose the upload (the invariant is never to drop a memory).
+  if (safeExt === "heic" || safeExt === "heif") {
+    try {
+      buf = await sharp(buf).jpeg({ quality: 88 }).toBuffer();
+      safeExt = "jpg";
+    } catch {
+      /* keep original bytes + ext; a rare undecodable file still gets stored */
+    }
+  }
+
   const resDir = path.join(DIARY, date, "resources");
   await fs.mkdir(resDir, { recursive: true });
   const name = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt}`;
-  await fs.writeFile(path.join(resDir, name), Buffer.from(base64, "base64"));
+  await fs.writeFile(path.join(resDir, name), buf);
   res.json({ ok: true, url: `/files/${date}/resources/${name}` });
 });
 

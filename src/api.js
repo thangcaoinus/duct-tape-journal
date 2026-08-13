@@ -226,19 +226,22 @@ export async function uploadImage(date, file) {
   const dataUrl = await new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result);
-    r.onerror = reject;
+    r.onerror = () => reject(new Error("could not read file"));
     r.readAsDataURL(file);
   });
-  const ext = (
-    file.name?.split(".").pop() ||
-    file.type.split("/")[1] ||
-    "png"
-  ).toLowerCase();
+  // Phone camera files often have no useful name; derive the ext from the MIME
+  // type, and fall back to png. (HEIC is transcoded to jpg server-side.)
+  const nameExt = file.name?.includes(".") ? file.name.split(".").pop() : "";
+  const mimeExt = (file.type || "").split("/")[1];
+  const ext = (nameExt || mimeExt || "png").toLowerCase();
   const res = await fetch(`/api/resource/${date}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ dataUrl, ext }),
   });
+  // Surface a non-OK response as a clean error instead of letting an unhandled
+  // rejection blank the app (a 413/500 error page isn't the JSON we expect).
+  if (!res.ok) throw new Error(`upload failed (${res.status})`);
   const { body } = await json(res);
   if (!body.ok) throw new Error(body.error || "upload failed");
   return body.url;
