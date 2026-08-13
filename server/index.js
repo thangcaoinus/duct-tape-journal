@@ -105,6 +105,16 @@ let _sentimentTried = false; // have we attempted a load this process?
 async function getSentimentPipe() {
   if (_sentimentTried) return _sentimentPipe;
   _sentimentTried = true;
+  // In tests, skip the model entirely: the safety-spine suite asserts the
+  // graceful null-sentiment CONTRACT (key omitted when unavailable), not scoring
+  // accuracy, and loading the model on a cold CI runner is slow + nondeterministic
+  // (it can blow past the per-test timeout). Short-circuiting here keeps the tests
+  // fast and deterministic while still exercising the "model unavailable" path.
+  // Real scoring is verified locally against the cached model.
+  if (process.env.NODE_ENV === "test") {
+    _sentimentPipe = null;
+    return null;
+  }
   try {
     const { pipeline } = await import("@huggingface/transformers");
     _sentimentPipe = await pipeline(

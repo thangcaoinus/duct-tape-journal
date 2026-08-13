@@ -24,13 +24,15 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-      # The safety-spine + helper tests. Hermetic by construction: TRANSFORMERS_OFFLINE
-      # forces the sentiment model into its offline path (no hub download), and the
-      # tests assert the graceful null-sentiment contract — so a green run needs no
-      # network and no cached model.
+      # The safety-spine + helper tests. Hermetic by construction: NODE_ENV=test
+      # short-circuits the sentiment model entirely (getSentimentPipe returns null),
+      # so finalize is instant and the tests exercise the graceful null-sentiment
+      # contract — no model load, no network, no cold-start flakiness. The OFFLINE
+      # flags are belt-and-suspenders in case any code path reaches transformers.
       - name: Test
         run: npm test
         env:
+          NODE_ENV: test
           TRANSFORMERS_OFFLINE: "1"
           HF_HUB_OFFLINE: "1"
 
