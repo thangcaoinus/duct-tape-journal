@@ -10,6 +10,8 @@ import {
   loadTopicEntries,
   loadEntry,
   saveTopic,
+  summarizeConcept,
+  summarizeTopic,
 } from "./api.js";
 import { DayFlow } from "./lib/pages.jsx";
 import { MiniSentiment } from "./lib/spark.jsx";
@@ -191,7 +193,7 @@ function TopicDetail({ topic, onBack }) {
 
   const list = entries || [];
   return (
-    <div className="bin-pane">
+    <div className="bin-pane gather-detail">
       <div className="page-header">
         <button className="btn-ghost" onClick={onBack}>
           ‹ Topics
@@ -213,6 +215,13 @@ function TopicDetail({ topic, onBack }) {
             points={list.map((e) => ({ date: e.date, sentiment: e.sentiment }))}
           />
         </section>
+      )}
+
+      {entries !== null && (
+        <AiSummary
+          onGenerate={() => summarizeTopic(topic)}
+          disabled={list.length === 0}
+        />
       )}
 
       <section className="concept-edit">
@@ -455,7 +464,7 @@ function ConceptDetail({ slug, onBack }) {
 
   const links = concept.links || [];
   return (
-    <div className="bin-pane">
+    <div className="bin-pane gather-detail">
       <div className="page-header">
         <button className="btn-ghost" onClick={onBack}>
           ‹ Concepts
@@ -503,6 +512,11 @@ function ConceptDetail({ slug, onBack }) {
           points={links.map((l) => ({ date: l.date, sentiment: l.sentiment }))}
         />
       </section>
+
+      <AiSummary
+        onGenerate={() => summarizeConcept(slug)}
+        disabled={links.length === 0}
+      />
 
       <section className="bin-group">
         <h3>Linked entries</h3>
@@ -579,4 +593,79 @@ function splitKeywords(s) {
     .split(/[,\s]+/)
     .map((w) => w.trim())
     .filter(Boolean);
+}
+
+// Shared AI-recap section for both the Concept and Topic detail pages. Stateless:
+// clicking Summarize regenerates on demand via the passed `onGenerate` (which hits
+// the concept/topic summary endpoint). The recap comes from a local, offline model
+// (distilbart via Transformers.js) and can be null when the model is unavailable —
+// the extractive highlights need no model, so they always show. `disabled` hides
+// the button when there's nothing linked to summarize.
+function AiSummary({ onGenerate, disabled }) {
+  const [state, setState] = useState("idle"); // idle | loading | done
+  const [result, setResult] = useState(null); // {summary, highlights, offline, empty}
+
+  async function run() {
+    setState("loading");
+    try {
+      setResult(await onGenerate());
+    } catch {
+      setResult({ summary: null, highlights: [], error: true });
+    }
+    setState("done");
+  }
+
+  return (
+    <section className="bin-group ai-summary">
+      <div className="ai-summary-head">
+        <h3>Recap</h3>
+        <button
+          className="btn"
+          onClick={run}
+          disabled={disabled || state === "loading"}
+        >
+          {state === "loading"
+            ? "Summarizing…"
+            : state === "done"
+              ? "Regenerate"
+              : "Summarize"}
+        </button>
+      </div>
+
+      {state === "idle" && (
+        <p className="ai-summary-hint">
+          Generate a quick recap of these entries — runs a small model on your
+          machine, no data leaves the app.
+        </p>
+      )}
+
+      {state === "done" && result && (
+        <div className="ai-summary-body">
+          {result.error ? (
+            <p className="empty">Couldn’t generate a summary — try again.</p>
+          ) : result.empty ? (
+            <p className="empty">No entry text to summarize yet.</p>
+          ) : (
+            <>
+              {result.summary ? (
+                <p className="ai-summary-recap">{result.summary}</p>
+              ) : (
+                <p className="ai-summary-note">
+                  The recap model isn’t available offline — showing highlights
+                  instead.
+                </p>
+              )}
+              {result.highlights?.length > 0 && (
+                <ul className="ai-summary-highlights">
+                  {result.highlights.map((h, i) => (
+                    <li key={i}>{h}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }

@@ -11,6 +11,20 @@ const ROOT = path.join(__dirname, "..");
 // at a throwaway temp dir (every other path below derives from DIARY). In normal
 // use it's the gitignored diary/ at the repo root.
 const DIARY = process.env.DIARY_DIR || path.join(ROOT, "diary");
+
+// Safety rail: under NODE_ENV=test the suite MUST target a throwaway DIARY_DIR
+// (each test file mkdtemp's one and sets it BEFORE importing this module). If a
+// test forgets — e.g. a static `import` from this file hoists above the env setup
+// and binds DIARY to the real diary/ — refuse to load rather than silently
+// finalize/delete against a real archive. This is exactly the mistake that once
+// wrote test entries into the dev diary/; fail loud instead of bleeding data.
+if (process.env.NODE_ENV === "test" && !process.env.DIARY_DIR) {
+  throw new Error(
+    "Refusing to run in test mode without DIARY_DIR set — a test would " +
+      "operate on the real diary/. Set process.env.DIARY_DIR to a temp dir " +
+      "BEFORE importing server/index.js (use a dynamic import after the assignment)."
+  );
+}
 const DRAFTS = path.join(DIARY, ".drafts");
 const TRASH = path.join(DIARY, ".trash");
 const META = path.join(DIARY, ".meta");
@@ -149,6 +163,116 @@ async function scoreSentiment(text) {
   }
   if (pos === null && neg === null) return null; // unexpected labels — degrade
   return Math.round(((pos ?? 0) - (neg ?? 0)) * 100);
+}
+
+// --- Local, offline summarization for the Gather detail pages ---
+// Same shape as the sentiment scorer: a lazily-loaded Transformers.js pipeline,
+// cached to disk on first use then fully offline, graceful-null when unavailable.
+// This is the deferred "AI box" reworked to the app's no-API-key identity — it
+// runs an on-device summarization model (distilbart) and imports nothing from the
+// Editor/Reader/Calendar; it bolts onto the folder + API spine only. distilbart is
+// a news summarizer, so on introspective prose it gives a serviceable recap, not
+// deep insight — paired with extractive highlights (below) that quote the user's
+// own salient sentences.
+let _summarizerPipe = null;
+let _summarizerTried = false;
+async function getSummarizerPipe() {
+  if (_summarizerTried) return _summarizerPipe;
+  _summarizerTried = true;
+  // Skip the model under test (same reasoning as getSentimentPipe): the suite
+  // asserts the graceful-offline contract, not summary quality, and loading a
+  // ~300MB model on a cold CI runner is slow + nondeterministic.
+  if (process.env.NODE_ENV === "test") {
+    _summarizerPipe = null;
+    return null;
+  }
+  try {
+    const { pipeline } = await import("@huggingface/transformers");
+    _summarizerPipe = await pipeline("summarization", "Xenova/distilbart-cnn-6-6");
+  } catch (e) {
+    console.warn("summarizer model unavailable (offline?):", e.message);
+    _summarizerPipe = null; // graceful: recap disabled, highlights still work
+  }
+  return _summarizerPipe;
+}
+
+// Abstractive recap of joined entry text, or null when the model is unavailable.
+async function summarizeEntries(text) {
+  if (!text || !text.trim()) return null;
+  const pipe = await getSummarizerPipe();
+  if (!pipe) return null; // offline / model missing → caller omits the recap
+  // distilbart's input window is small; truncate defensively.
+  const input = text.length > 3000 ? text.slice(0, 3000) : text;
+  const out = await pipe(input, { max_new_tokens: 90, min_length: 25 });
+  const s = out?.[0]?.summary_text?.trim();
+  return s || null;
+}
+
+// Extractive highlights — no model, always available. Classic frequency-based
+// sentence ranking: score each sentence by the summed normalized frequency of its
+// content words, take the top `n`, and return them in their ORIGINAL order (so the
+// highlights read as a coherent skim, not a jumble). Pure + exported for testing.
+function highlightSentences(text, n = 4) {
+  if (!text || !text.trim()) return [];
+  // Split into sentences on terminal punctuation; keep ones of reasonable length.
+  const sentences = text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 20);
+  if (sentences.length <= n) return sentences;
+
+  const STOP = new Set(
+    ("a an and the of to in on at for is are was were be been being it its this that " +
+      "i me my we our you your he she they them his her their but or so if then than " +
+      "with as by from about into out up down over under again just not no yes do did " +
+      "have has had will would can could should i'm i've it's day today")
+      .split(" ")
+  );
+  const words = (s) => s.toLowerCase().match(/[a-z']+/g) || [];
+  const freq = new Map();
+  for (const s of sentences) {
+    for (const w of words(s)) {
+      if (STOP.has(w) || w.length < 3) continue;
+      freq.set(w, (freq.get(w) || 0) + 1);
+    }
+  }
+  const max = Math.max(1, ...freq.values());
+  const score = (s) => {
+    const ws = words(s).filter((w) => !STOP.has(w) && w.length >= 3);
+    if (!ws.length) return 0;
+    const sum = ws.reduce((a, w) => a + (freq.get(w) || 0) / max, 0);
+    return sum / Math.sqrt(ws.length); // length-normalized so long ≠ automatically top
+  };
+  return sentences
+    .map((s, i) => ({ s, i, v: score(s) }))
+    .sort((a, b) => b.v - a.v)
+    .slice(0, n)
+    .sort((a, b) => a.i - b.i) // restore original reading order
+    .map((x) => x.s);
+}
+
+// Read the bodies (frontmatter stripped) of a set of {date, entry} links, live or
+// from trash — reuses the same read-live-or-trashed logic as entrySentiment / the
+// concept-entry preview. Returns the joined text plus the per-entry bodies.
+async function readLinkBodies(links) {
+  const bodies = [];
+  for (const l of links || []) {
+    const entry = l.entry;
+    let blob = path.join(DIARY, l.date, entry);
+    if (!fsSync.existsSync(blob)) {
+      blob = await findTrashedEntry(l.date, entry);
+      if (!blob) continue; // gone entirely — skip
+    }
+    try {
+      const raw = await fs.readFile(blob, "utf8");
+      const { body } = parseFrontmatter(raw);
+      if (body && body.trim()) bodies.push(body.trim());
+    } catch {
+      /* unreadable — skip */
+    }
+  }
+  return { bodies, text: bodies.join("\n\n") };
 }
 
 // A topic is a single lowercase word (one continuous \w+), like an email subject.
@@ -1178,6 +1302,37 @@ app.get("/api/concepts/:slug/entry/:date/:name", guardDate, async (req, res) => 
   res.json({ ok: true, markdown: toWire(body, date) });
 });
 
+// --- AI recap: summarize a concept's / topic's linked entries (local, offline) ---
+// Stateless: generate on the fly and return, write NOTHING (so no concept/topic
+// JSON — and therefore no links — is ever touched). Highlights need no model, so
+// they return even offline; only the abstractive `summary` is null when the model
+// is unavailable (offline+uncached), with `offline:true` so the UI can say so.
+app.post("/api/concepts/:slug/summary", async (req, res) => {
+  const slug = path.basename(req.params.slug);
+  const c = await readConcept(slug);
+  if (!c) return res.status(404).json({ ok: false, error: "not found" });
+  const { text } = await readLinkBodies(c.links);
+  if (!text.trim()) {
+    return res.json({ ok: true, summary: null, highlights: [], empty: true });
+  }
+  const highlights = highlightSentences(text);
+  const summary = await summarizeEntries(text);
+  res.json({ ok: true, summary, highlights, offline: summary === null });
+});
+
+app.post("/api/topics/:topic/summary", async (req, res) => {
+  const target = normTopic(req.params.topic);
+  if (!target) return res.status(400).json({ ok: false, error: "bad topic" });
+  const idx = await ensureTopicIndex(target);
+  const { text } = await readLinkBodies(idx.links);
+  if (!text.trim()) {
+    return res.json({ ok: true, summary: null, highlights: [], empty: true });
+  }
+  const highlights = highlightSentences(text);
+  const summary = await summarizeEntries(text);
+  res.json({ ok: true, summary, highlights, offline: summary === null });
+});
+
 // --- Static serve of diary/ so images display ---
 app.use("/files", express.static(DIARY));
 
@@ -1202,4 +1357,5 @@ export {
   entryMatches,
   addLink,
   addTopicLink,
+  highlightSentences,
 };

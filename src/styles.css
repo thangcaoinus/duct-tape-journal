@@ -2291,6 +2291,99 @@ button.cal-cell:hover {
   letter-spacing: -0.01em;
   color: var(--ink);
 }
+
+/* --- Gather detail pages (Concept/Topic): give the stacked sections
+   (notes/keywords · sentiment · recap · linked entries) real breathing room and
+   a quiet hairline divider so they read as distinct sections, not one dense
+   stack. Scoped to .gather-detail so the Tore bin's .bin-group spacing is
+   untouched. --- */
+.gather-detail > .concept-edit,
+.gather-detail > .bin-group,
+.gather-detail > .ai-summary {
+  margin-top: var(--s-6);
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--line);
+}
+/* The first section under the page header needs no divider or extra gap — the
+   header's own rule already opens the page. */
+.gather-detail > .page-header + .concept-edit,
+.gather-detail > .page-header + .bin-group,
+.gather-detail > .page-header + .ai-summary {
+  margin-top: var(--s-4);
+  padding-top: 0;
+  border-top: none;
+}
+/* Normalize the notes/keywords block's own cramped hardcoded margin so it sits
+   on the shared rhythm like every other section. */
+.gather-detail > .concept-edit {
+  margin-bottom: 0;
+}
+
+/* --- AI recap section (Concept/Topic detail). Reuses the paper + accent tokens
+   so it reads as part of the same page, not a bolted-on widget. --- */
+.ai-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+.ai-summary-head h3 {
+  margin: 0;
+}
+.ai-summary-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-style: italic;
+}
+.ai-summary-body {
+  margin-top: var(--s-2);
+}
+/* The recap reads as a pulled quote of generated prose in the book's voice — a
+   soft paper card with an oversized hanging serif quotation mark as its accent,
+   NOT a colored side-bar (that thick one-side border is the AI-UI tell). */
+.ai-summary-recap {
+  position: relative;
+  margin: 0 0 var(--s-3);
+  padding: var(--s-3) var(--s-4) var(--s-3) var(--s-6);
+  background: var(--paper-shade);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.04em;
+  line-height: 1.62;
+  color: var(--ink);
+}
+.ai-summary-recap::before {
+  content: "\201C"; /* “ — a book pulled-quote mark, in the accent hue */
+  position: absolute;
+  left: var(--s-2);
+  top: 0.02em;
+  font-family: var(--font-serif);
+  font-size: 2.1em;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.5;
+}
+.ai-summary-note {
+  margin: 0 0 var(--s-3);
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-style: italic;
+}
+.ai-summary-highlights {
+  margin: 0;
+  padding-left: var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.ai-summary-highlights li {
+  color: var(--ink);
+  line-height: 1.5;
+}
 /* Preview reads as supporting (secondary); Restore is primary via .btn-primary,
    so scope this to buttons that AREN'T primary so the fill still wins. */
 .bin-pane .resource-actions button:not(.btn-primary) {

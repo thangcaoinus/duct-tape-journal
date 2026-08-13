@@ -187,6 +187,38 @@ export async function loadEntry(date, name) {
   return body.markdown ?? "";
 }
 
+// --- AI recap (local, offline summarization of a concept's / topic's entries) ---
+// Stateless: each call regenerates. Returns { summary, highlights, offline }.
+// `summary` is null when the model is unavailable (offline+uncached); highlights
+// need no model so they come back regardless.
+export async function summarizeConcept(slug) {
+  const { body } = await json(
+    await fetch(`/api/concepts/${encodeURIComponent(slug)}/summary`, {
+      method: "POST",
+    })
+  );
+  return {
+    summary: body.summary ?? null,
+    highlights: body.highlights ?? [],
+    offline: !!body.offline,
+    empty: !!body.empty,
+  };
+}
+
+export async function summarizeTopic(topic) {
+  const { body } = await json(
+    await fetch(`/api/topics/${encodeURIComponent(topic)}/summary`, {
+      method: "POST",
+    })
+  );
+  return {
+    summary: body.summary ?? null,
+    highlights: body.highlights ?? [],
+    offline: !!body.offline,
+    empty: !!body.empty,
+  };
+}
+
 // --- Sentiment ---
 
 // Whether the neural sentiment model loaded (offline+uncached => false). Lets the
