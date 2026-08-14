@@ -30,7 +30,7 @@ npm run demo
 - **Write.** A markdown editor that autosaves as you type. Commit an entry with the button or with Cmd/Ctrl+Enter. You can paste or drop in images, and it renders inline math with `$...$`.
 - **Read.** Your entries laid out like a book you can page through, one day at a time.
 - **Calendar.** A month grid where each day is tinted by how it felt.
-- **Gather.** Browse entries by their topic word, or make a "concept" (an idea plus a few keywords) that collects every entry mentioning it. You can also generate a short recap of a group of entries.
+- **Gather.** Browse entries by their topic word, or make a "concept" (an idea plus a few keywords) that collects every entry mentioning it.
 - **Home.** A quiet overview: a mood line over time, a heatmap, and how each topic tends to feel.
 - **Tore.** Nothing is ever really deleted. Deleted entries and images land here, and you can put them back.
 
@@ -46,9 +46,13 @@ Read mode lays the days out like a book:
 
 ![Read mode](assets/screenshots/read.png)
 
-Gather collects entries around a topic or an idea, and can write a short recap:
+## Recaps that run on your machine
 
-![Gather tab](assets/screenshots/gather.png)
+Once you have a pile of entries about the same thing, it is a lot to reread. So Gather has a Summarize button. Click it and you get a short recap of that group of entries, plus a few highlighted lines pulled straight from what you wrote.
+
+![Generating a recap on a concept](assets/recap.gif)
+
+Here is the part worth saying twice: the model runs on your own computer. There is no API key to set up, no account, no sending your journal off to someone else's server to be summarized. The first click downloads a small model once, and after that it works offline like the rest of the app. If the model is not available, you still get the highlighted lines, since those need no model at all.
 
 ## Local-first, plainly
 
