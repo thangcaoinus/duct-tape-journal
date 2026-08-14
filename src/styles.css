@@ -740,6 +740,15 @@ button.cal-cell:focus-visible,
   color: var(--muted);
   font-size: var(--t-small);
 }
+/* A quiet word count in the Write toolbar — gentle progress, sits with the status
+   voice but pushed to the far right of the toolbar's flexible middle. */
+.wordcount {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 /* In the book Reader the page position reads as a quiet serif dateline, in the
    book's own voice — not a form-status line like the editor's "saving…". */
 .reader-pane .toolbar .status {
@@ -846,6 +855,19 @@ button.cal-cell:focus-visible,
   font-family: var(--font-serif);
   font-size: 17px;
   line-height: 28px; /* sits on the feint rules */
+}
+/* Rotating placeholder prompt in the empty editor — a quiet, non-selectable
+   invitation in the same serif reading voice (TipTap sets data-placeholder on the
+   first empty node). Authoring surface only; never on the paginated read flow. */
+.editor-pane .prose .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+  opacity: 0.7;
 }
 
 /* --- Selection bubble menu: a small floating formatting bar that appears just

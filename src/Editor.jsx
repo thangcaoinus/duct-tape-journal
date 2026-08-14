@@ -3,8 +3,10 @@ import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Mathematics from "@tiptap/extension-mathematics";
+import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { today } from "./lib/date.js";
+import { writingPrompts, finalizeCheers, randomPrompt } from "./lib/prompts.js";
 import {
   loadDraft,
   saveDraft,
@@ -65,11 +67,17 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
   const date = today();
   const editorRef = useRef(null);
   const saveTimer = useRef(null);
+  const finalizeRef = useRef(null); // so the editor keymap can call the latest onFinalize
   const [status, setStatus] = useState("");
   const [currentMath, setCurrentMath] = useState("");
   const [topic, setTopic] = useState(""); // subject-line topic for this entry
   const topicRef = useRef(""); // live value for the debounced autosave closure
   const [topics, setTopics] = useState([]); // suggestions from past finalizes
+  const [wordCount, setWordCount] = useState(0); // quiet progress, no streaks
+  // A rotating placeholder prompt, refreshed each time the page goes blank (mount
+  // + after a finalize clears it) so the empty page invites differently.
+  const [prompt, setPrompt] = useState(() => randomPrompt(writingPrompts));
+  const promptRef = useRef(prompt); // read the current prompt from the extension fn
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Bump on open so the drawer reloads (e.g. an image pasted since last time).
   const [drawerKey, setDrawerKey] = useState(0);
@@ -117,8 +125,23 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
       Image,
       Mathematics,
       Markdown.configure({ html: false }),
+      Placeholder.configure({
+        // A function so it reads the CURRENT rotating prompt (via the ref) each
+        // time the empty node re-renders, rather than freezing one at mount.
+        placeholder: () => promptRef.current,
+      }),
     ],
     editorProps: {
+      // ⌘/Ctrl+Enter finalizes the entry (a quick keyboard commit). Plain Enter
+      // stays a newline — the autosave-not-save-on-Enter invariant is untouched.
+      handleKeyDown(view, event) {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          finalizeRef.current?.();
+          return true;
+        }
+        return false;
+      },
       handlePaste(view, event) {
         // 1. Pasted image FILES (screenshot, copied image) -> upload + insert.
         const files = event.clipboardData?.files || [];
@@ -152,6 +175,9 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
       },
     },
     onUpdate({ editor }) {
+      // Quiet word count — a gentle sense of progress, no streaks.
+      const text = editor.getText().trim();
+      setWordCount(text ? text.split(/\s+/).filter(Boolean).length : 0);
       // Debounced autosave. Enter is a newline — never save-on-Enter.
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
@@ -180,6 +206,25 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
     editorRef.current = editor;
   }, [editor]);
 
+  // Keep the prompt ref in sync so the Placeholder extension's function reads the
+  // current rotating prompt.
+  useEffect(() => {
+    promptRef.current = prompt;
+  }, [prompt]);
+
+  // Expose the latest onFinalize to the editor's ⌘/Ctrl+Enter keymap.
+  useEffect(() => {
+    finalizeRef.current = onFinalize;
+  });
+
+  // Refresh the placeholder prompt (and re-render the empty node so it shows) any
+  // time the page becomes empty — mount and after a finalize clears the content.
+  function freshPrompt() {
+    const p = randomPrompt(writingPrompts);
+    promptRef.current = p;
+    setPrompt(p);
+  }
+
   // Load today's draft (body + topic) and the topic suggestions on mount.
   useEffect(() => {
     if (!editor) return;
@@ -190,6 +235,9 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
       if (markdown) editor.commands.setContent(markdown);
       setTopic(savedTopic);
       topicRef.current = savedTopic;
+      // Seed the word count from a restored draft so it's right before first edit.
+      const text = editor.getText().trim();
+      setWordCount(text ? text.split(/\s+/).filter(Boolean).length : 0);
     })();
     loadTopics().then((t) => !cancelled && setTopics(t));
     return () => {
@@ -226,9 +274,16 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
       editor.commands.setContent(""); // clear to a blank today for entry-N+1
       setTopic("");
       topicRef.current = "";
+      setWordCount(0);
+      freshPrompt(); // a new blank page invites with a different prompt
       loadTopics().then(setTopics); // a just-used new topic now suggests
       onFinalized?.(); // tell the app an entry changed so Read re-measures
-      setStatus(`finalized ${body.entry}`);
+      // Cancel the autosave that clearing the content just scheduled — the empty
+      // draft needs no save (finalize already trashed it), and letting it run
+      // would overwrite the confirmation below with "saved".
+      clearTimeout(saveTimer.current);
+      // A warm rotating confirmation beside the entry name (cleared by the next edit).
+      setStatus(`${randomPrompt(finalizeCheers)} · ${body.entry}`);
     } else {
       setStatus(`finalize failed (${code}): ${body.error}`);
     }
@@ -257,7 +312,12 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
             <option key={t} value={t} />
           ))}
         </datalist>
-        <button className="btn-primary" onClick={onFinalize}>
+        <button
+          className="btn-primary"
+          onClick={onFinalize}
+          title="Finalize (⌘/Ctrl+Enter)"
+          aria-keyshortcuts="Meta+Enter Control+Enter"
+        >
           Finalize
         </button>
         <button
@@ -267,6 +327,11 @@ export default function Editor({ onFinalized, onDrawerToggle }) {
         >
           Images {drawerOpen ? "▸" : "◂"}
         </button>
+        {wordCount > 0 && (
+          <span className="wordcount">
+            {wordCount} word{wordCount === 1 ? "" : "s"}
+          </span>
+        )}
         <span className="status">{status}</span>
       </div>
       {/* Editor and the resource drawer sit side by side inside the pane, so
