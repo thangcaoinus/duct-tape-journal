@@ -1,0 +1,20 @@
+{
+  "topic": "health",
+  "page": "Body-maintenance notes. The boring inputs that turn out to run everything else.",
+  "links": [
+    {
+      "date": "2026-05-27",
+      "entry": "entry-1.md"
+    },
+    {
+      "date": "2026-07-28",
+      "entry": "entry-1.md"
+    },
+    {
+      "date": "2026-08-03",
+      "entry": "entry-1.md"
+    }
+  ],
+  "createdAt": "2026-05-27T09:00:00.000Z",
+  "updatedAt": "2026-08-03T09:00:00.000Z"
+}

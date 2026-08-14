@@ -1,0 +1,30 @@
+{
+  "name": "sleep",
+  "keywords": [
+    "tired",
+    "rest"
+  ],
+  "page": "Turns out a surprising amount of my mood is just a sleep debt wearing a trench coat. Tracking it because the pattern only shows up across weeks, not days.",
+  "links": [
+    {
+      "date": "2026-05-27",
+      "entry": "entry-1.md",
+      "matched": "tired",
+      "at": "2026-05-27T09:00:00.000Z"
+    },
+    {
+      "date": "2026-07-28",
+      "entry": "entry-1.md",
+      "matched": "tired",
+      "at": "2026-07-28T09:01:00.000Z"
+    },
+    {
+      "date": "2026-08-03",
+      "entry": "entry-1.md",
+      "matched": "sleep",
+      "at": "2026-08-03T09:02:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-27T09:00:00.000Z",
+  "updatedAt": "2026-08-03T09:02:00.000Z"
+}

@@ -2,10 +2,31 @@
   "topic": "work",
   "page": "Where most of the dread lives. Also where most of the relief lives, eventually.",
   "links": [
-    { "date": "2026-05-04", "entry": "entry-2.md" },
-    { "date": "2026-05-19", "entry": "entry-1.md" },
-    { "date": "2026-06-11", "entry": "entry-1.md" }
+    {
+      "date": "2026-05-04",
+      "entry": "entry-2.md"
+    },
+    {
+      "date": "2026-05-19",
+      "entry": "entry-1.md"
+    },
+    {
+      "date": "2026-06-02",
+      "entry": "entry-2.md"
+    },
+    {
+      "date": "2026-06-11",
+      "entry": "entry-1.md"
+    },
+    {
+      "date": "2026-07-01",
+      "entry": "entry-1.md"
+    },
+    {
+      "date": "2026-08-03",
+      "entry": "entry-2.md"
+    }
   ],
-  "createdAt": "2026-05-04T18:20:00.000Z",
-  "updatedAt": "2026-06-11T08:30:00.000Z"
+  "createdAt": "2026-05-04T09:00:00.000Z",
+  "updatedAt": "2026-08-03T09:00:00.000Z"
 }

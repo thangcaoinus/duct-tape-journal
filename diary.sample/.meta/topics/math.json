@@ -1,7 +1,16 @@
 {
   "topic": "math",
   "page": "",
-  "links": [{ "date": "2026-05-19", "entry": "entry-2.md" }],
-  "createdAt": "2026-05-19T20:00:00.000Z",
-  "updatedAt": "2026-05-19T20:00:00.000Z"
+  "links": [
+    {
+      "date": "2026-05-19",
+      "entry": "entry-2.md"
+    },
+    {
+      "date": "2026-08-10",
+      "entry": "entry-1.md"
+    }
+  ],
+  "createdAt": "2026-05-19T09:00:00.000Z",
+  "updatedAt": "2026-08-10T09:00:00.000Z"
 }
