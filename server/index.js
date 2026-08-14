@@ -1340,7 +1340,7 @@ app.use("/files", express.static(DIARY));
 // and drives it with supertest (no open socket), so the listener is skipped.
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
-    console.log(`Duct-Tape Diary server on http://localhost:${PORT}`);
+    console.log(`Duct-Tape Journal server on http://localhost:${PORT}`);
   });
 }
 

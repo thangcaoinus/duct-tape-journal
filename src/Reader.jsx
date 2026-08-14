@@ -409,7 +409,7 @@ export default function Reader({ active = true, dataVersion = 0 }) {
     <div className="reader-pane">
       <div className="page-header">
         <h2>Read</h2>
-        <span className="page-sub">Your diary as a book</span>
+        <span className="page-sub">Your journal as a book</span>
         <div className="page-rule" />
       </div>
 

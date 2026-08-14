@@ -64,6 +64,19 @@ function RailIcon({ name }) {
   );
 }
 
+// The brand mark: a journal page with a strip of tape over the folded corner —
+// drawn in the same single-stroke line-art voice as the rail icons, in ink so it
+// reads as part of the wordmark rather than a colored badge.
+function BrandMark() {
+  return (
+    <svg className="masthead-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 4h8l4 4v12H6z" />
+      <path d="M14 4v4h4" />
+      <path d="M10 5.4l5.2 3.6-1.4 2-5.2-3.6z" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 export default function App() {
   // Boots to Write — the diary opens ready to write, not on the dashboard. The
   // rail flips modes.
@@ -114,8 +127,11 @@ export default function App() {
           Keeps the serif identity in one fixed place instead of crammed into the
           nav rail — the rail below is now pure navigation. */}
       <header className="masthead">
-        <span className="masthead-brand">Duct-Tape Diary</span>
-        <span className="masthead-sub">a local diary</span>
+        <span className="masthead-title">
+          <BrandMark />
+          <span className="masthead-brand">Duct-Tape Journal</span>
+        </span>
+        <span className="masthead-sub">a local journal</span>
       </header>
 
       <nav className="rail" aria-label="Primary">

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+     stroke="#221f19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Duct-Tape Journal: a journal page with a strip of tape over the folded corner.
+       The sheet is filled with paper so the mark reads on dark browser tabs too. -->
+  <path d="M6 4h8l4 4v12H6z" fill="#fbf6ea"/>
+  <path d="M14 4v4h4" fill="none"/>
+  <path d="M10 5.4l5.2 3.6-1.4 2-5.2-3.6z" fill="#fbf6ea" stroke-width="1.7"/>
+</svg>

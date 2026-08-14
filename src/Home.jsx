@@ -27,12 +27,12 @@ export default function Home({ dataVersion = 0, onChanged }) {
     <div className="home-pane">
       <div className="page-header">
         <h2>Home</h2>
-        <span className="page-sub">Your diary at a glance</span>
+        <span className="page-sub">Your journal at a glance</span>
         <div className="page-rule" />
       </div>
 
       {!stats ? (
-        <p className="empty">Reading your diary…</p>
+        <p className="empty">Reading your journal…</p>
       ) : empty ? (
         <p className="empty">
           No entries yet — write your first one and it'll show up here.

@@ -214,7 +214,7 @@ export default function Calendar({ onChanged }) {
       </div>
 
       {!stats ? (
-        <p className="empty">Reading your diary…</p>
+        <p className="empty">Reading your journal…</p>
       ) : (
         <div
           key={anim.nonce}

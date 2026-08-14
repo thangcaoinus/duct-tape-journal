@@ -127,13 +127,34 @@ body {
   border-bottom: 1px solid var(--paper-edge);
   box-shadow: inset 0 -10px 20px -18px rgba(58, 45, 24, 0.35);
 }
+/* The mark + wordmark travel together as one group; center-aligned inside so the
+   icon sits at the wordmark's cap height. The group is a baseline flex child of
+   the masthead, so the subtitle still shares the wordmark's baseline. */
+.masthead-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-title); /* the group owns the title size so the mark's em tracks it */
+}
 .masthead-brand {
   font-family: var(--font-serif);
-  font-size: var(--t-title);
+  font-size: 1em; /* inherits --t-title from .masthead-title (or --t-head on phones) */
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
   line-height: 1;
+}
+/* Brand mark: same single-stroke line-art voice as .rail-icon, in ink, sized to
+   the wordmark's cap height. */
+.masthead-mark {
+  flex: 0 0 auto;
+  width: 1.05em;
+  height: 1.05em;
+  stroke: var(--ink);
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .masthead-sub {
   font-family: var(--font-serif);
@@ -331,8 +352,8 @@ body {
   .masthead {
     padding: var(--s-3) var(--s-4);
   }
-  .masthead-brand {
-    font-size: var(--t-head);
+  .masthead-title {
+    font-size: var(--t-head); /* shrinks wordmark AND mark together on phones */
   }
   .rail {
     position: sticky; /* keep the nav in reach as the page scrolls */
