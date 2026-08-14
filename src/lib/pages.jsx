@@ -21,6 +21,7 @@ import Mathematics from "@tiptap/extension-mathematics";
 import { Markdown } from "tiptap-markdown";
 import { loadDay } from "../api.js";
 import { useConcepts, buildMatcher, openConceptPage } from "./concepts.jsx";
+import { sentimentColor } from "./sentiment.js";
 
 // Fixed page geometry (px). Kept in sync with the CSS custom properties in
 // styles.css (--page-w/h/pad/foot-h).
@@ -42,7 +43,11 @@ const EXTENSIONS = [
 // paragraph. It rides through tiptap-markdown as ordinary text into a plain <p>,
 // then `tagEntryTopics` finds exactly these paragraphs post-render and dresses
 // them as a #topic chip — without ever matching real prose.
-const TOPIC_SENTINEL = "⁣"; // invisible separator
+const TOPIC_SENTINEL = "⁣"; // invisible separator (U+2063)
+// A second invisible separator between the topic and its sentiment on the injected
+// line. A visible delimiter (tab/space) gets collapsed by the markdown pipeline,
+// so use a zero-width char that survives verbatim and never shows to the reader.
+const SENT_SENTINEL = "​"; // zero-width space
 
 // Join a day's entries into one markdown doc, separated by an <hr>. When
 // `showTopics` is set (default), each entry that has a topic gets a sentinel
@@ -54,7 +59,13 @@ export function joinEntries(entries, showTopics = true) {
     .map((e, i) => {
       const sep = i === 0 ? "" : "\n\n---\n\n";
       const topic = showTopics ? e.meta?.topic : null;
-      const head = topic ? `${TOPIC_SENTINEL}${topic}\n\n` : "";
+      // Carry the entry's sentiment alongside the topic (after a tab) so the read
+      // marker can be tinted by it. Rides through tiptap-markdown as plain text in
+      // the SAME injected paragraph — measured + rendered flows stay identical.
+      const sent = e.meta?.sentiment;
+      const head = topic
+        ? `${TOPIC_SENTINEL}${topic}${SENT_SENTINEL}${sent ?? ""}\n\n`
+        : "";
       return sep + head + e.markdown;
     })
     .join("");
@@ -265,12 +276,25 @@ function tagEntryTopics(pm) {
     if (block.classList.contains("entry-topic-mark")) continue;
     const text = block.textContent || "";
     if (!text.startsWith(TOPIC_SENTINEL)) continue;
-    const topic = text.slice(TOPIC_SENTINEL.length).trim();
+    // The injected line is `<sentinel>topic<sent-sentinel><sentiment>` (joinEntries).
+    const payload = text.slice(TOPIC_SENTINEL.length);
+    const sep = payload.indexOf(SENT_SENTINEL);
+    const topic = (sep === -1 ? payload : payload.slice(0, sep)).trim();
     if (!topic) continue;
+    const sentRaw = sep === -1 ? "" : payload.slice(sep + 1).trim();
     block.classList.add("entry-topic-mark");
     // Store the bare topic; the leading "#" is drawn by CSS (::before) so it can
     // be styled independently without ::first-letter catching the first word char.
     block.textContent = topic;
+    // Tint the topic word green(+)/rust(−) by the entry's sentiment — a legible
+    // ramp (high opacity floor) so the word stays readable on paper. Color only,
+    // so pagination geometry is untouched. Unscored → keep the default topic ink.
+    const sent = sentRaw === "" ? null : Number(sentRaw);
+    const tint =
+      sent == null || Number.isNaN(sent)
+        ? null
+        : sentimentColor(sent, { floor: 0.85, span: 0.15 });
+    block.style.color = tint || ""; // "" restores the CSS default (--topic-fg)
   }
 }
 

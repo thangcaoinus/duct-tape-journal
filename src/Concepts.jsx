@@ -281,6 +281,15 @@ function TopicLink({ link }) {
           <code className="resource-name">
             {link.date} · {link.entry.replace(/\.md$/, "")}
           </code>
+          {link.sentiment != null && (
+            <span className="entry-sent">
+              <span
+                className="entry-sent-dot"
+                style={{ background: sentimentDot(link.sentiment) }}
+              />
+              {link.sentiment > 0 ? `+${link.sentiment}` : link.sentiment}
+            </span>
+          )}
         </div>
         <div className="resource-actions">
           <button onClick={togglePreview}>{open ? "Hide" : "Preview"}</button>
@@ -567,6 +576,15 @@ function ConceptLink({ slug, link }) {
               <span className="concept-tore-tag"> · in tore</span>
             )}
           </span>
+          {link.sentiment != null && (
+            <span className="entry-sent">
+              <span
+                className="entry-sent-dot"
+                style={{ background: sentimentDot(link.sentiment) }}
+              />
+              {link.sentiment > 0 ? `+${link.sentiment}` : link.sentiment}
+            </span>
+          )}
         </div>
         <div className="resource-actions">
           <button onClick={togglePreview}>{open ? "Hide" : "Preview"}</button>
